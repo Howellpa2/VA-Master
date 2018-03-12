@@ -203,7 +203,16 @@ end;
 'SampleTitle$(31,"Keyboard");
 'SampleOptimise(1,1,0,2,50);  'Set optimise mode (do this last)
 'SampleMode(1); 'Continuous sampling
-
+'----------------------------------------------------------------------------------------------------------------------'
+'-------------------------------------Function for dealing with wait periods-------------------------------------------'
+'----------------------------------------------------------------------------------------------------------------------'
+func Waiting%();
+var ret%:=1;
+if Seconds() > WaitTime then 'exits when WaitTime reached
+	ret%:= 0;'             'Idk if I actually need the return, it was used for closing the message box for NewsFlash
+endif;
+return ret%;
+end;
 '----------------------------------------------------------------------------------------------------------------------'
 '----------------------------------------------------------------------------------------------------------------------'
 '----------------------------------------------------------------------------------------------------------------------'
@@ -215,17 +224,19 @@ end;
 '  Tshow                                           ' the delay before the message box closes automatically in seconds (minimum 1.5).
 '  x,y                                             ' the coordinates of the message box on the screen.
                                                             '(If x and y are set to 0, the message box will appear in mid-screen)
-'  beep%                                           ' If set to 1 then the computer plays a short 'beep' when the message first appears.
+'  beep%                                            ' If set to 1 then the computer plays a short 'beep' when the message first appears.
 
 var tflash;                                         ' global variable required by NewsFlash() and NFIdle%();
-  proc NewsFlash(msg$,Tshow,x,y,beep%);           ' floating message box at coordinates with optional audible alert
-  var dummy;
-  if Tshow < 1.5 then Tshow:=1.5; endif;          'set minimum display time
-  tflash:=Tshow;                                  'tflash is a global variable
-  if beep% then
-    Sound("S*",1);                              'beep
-  endif;
-  Seconds(0);                                     'reset the clock
+  proc NewsFlash(msg$,Tshow,x,y,beep%);           	' floating message box at coordinates with optional audible alert
+  	var dummy;
+  		if Tshow < 1.5 then
+			Tshow:=1.5; 																	'set minimum display time
+			endif;
+  	tflash:=Tshow;                                	'tflash is a global variable
+  		if beep% then
+    		Sound("S*",1);                              'beep
+  		endif;
+  	Seconds(0);                                     'reset the clock
   DlgCreate("Info:",x,y);
   DlgLabel(1,msg$);
   DlgAllow(1023,NFIdle%);                         'Idle routine does the timing
@@ -933,11 +944,16 @@ for i%:=0 to 2 do
     MVCstartTime[i%]:=View(pVAThreshdata%).Maxtime();                               'Track MVC Trial start time
     FeedbackTime:=View(pVAThreshdata%).Maxtime();
 Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6.5,0,05,1); 'Trial start
-yield(7);                                                                'Trial record duration
+seconds(0,1);
+WaitTime:=7;
+Waiting%();
+'yield(7);                                                                'Trial record duration
 MVCendTime[i%]:=View(pVAThreshdata%).Maxtime();                                 'Track MVC Trial end time
 FindMVC();                                                                'Find Average MVC of Trial
 Newsflash("Well Done! Now rest.",5,0,05,1);                              'Trial rest duration
-yield(85);
+seconds(0,1);
+WaitTime:=85;
+Waiting%();
 next;
     SampleStop();
 'FileSaveAs(subjectID$,-1);
