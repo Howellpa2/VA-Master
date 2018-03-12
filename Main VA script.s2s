@@ -121,14 +121,14 @@ var Protocol$:= "";'"pVARecProtocol";
 var LastPulseTime:=0;
 var FxLVL,FyLVL,FzLVL,MzLVL,EMGlvl;
 var UpperFxLimit,LowerFxLimit,UpperFyLimit,LowerFyLimit,UpperFzLimit,LowerFzLimit,UpperMzLimit,LowerMzLimit,UpperEMGLimit,LowerEMGLimit;
-var ForceMomentIn[7000][6];
-var ForceMomentOut[6][7000];
+var ForceMomentIn[6000][6];
+var ForceMomentOut[6][6000];
 var delta[6]:={.023, .023, .0093, 45, 45, 15};
 var roll,pitch,yaw;
-var smoothedMVCout[6500];
-var smoothedMVCin[6500][6];
-var AvgBicep[6500];'[1];
-var BicepRMS[6500];
+var smoothedMVCout[5500];
+var smoothedMVCin[5500][6];
+var AvgBicep[5500];'[1];
+var BicepRMS[5500];
 var TrialMVCin[3][6];
 var TrialMVCout[3][1];
 var TrialBicepMVC[3][1];
@@ -943,9 +943,9 @@ for i%:=0 to 2 do
     FrontView(pVAThreshdata%);
     MVCstartTime[i%]:=View(pVAThreshdata%).Maxtime();                               'Track MVC Trial start time
     FeedbackTime:=View(pVAThreshdata%).Maxtime();
-Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6.5,0,05,1); 'Trial start
+Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
 seconds(0,1);
-WaitTime:=7;
+WaitTime:=6;
 Waiting%();
 'yield(7);                                                                'Trial record duration
 MVCendTime[i%]:=View(pVAThreshdata%).Maxtime();                                 'Track MVC Trial end time
@@ -970,24 +970,24 @@ return 1 'stay in the current toolbar
 end;
 func FindMVC()
 var MVC, avgMVC, i%, BicepMVC;
-const nMax% := 7000;           'MVC Trial bin length
+const nMax% := 6000;           'MVC Trial bin length
 var FxArray[nMax%], FyArray[nMax%], FzArray[nMax%], MxArray[nMax%], MyArray[nMax%], MzArray[nMax%];       'Arrays for forces and moments of each trial
 var BicepArray[nMax%], TricepArray[nMax%];
 'View(pVAdata%).ChanData(FxChan%, View(resultViewH%,FxChan%).[], MVCstartTime[TrialCount%]+6,MVCendTime[TrialCount%]);' update results waveform
 'View(resultViewH%).YRange(FxChan%, View(resultViewH%).YLow(FxChan%), View(resultViewH%).YHigh(FxChan%));             ' "                     "
 'View(resultViewH%).Draw();                                                                                           ' "                     "
 FrontView(pVAdata%);
-view(pVAdata%).ChanData(1, BicepArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]);
-view(pVAdata%).ChanData(2, TricepArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]);
-view(pVAdata%).ChanData(3, FxArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]); 'Get the arrays of forces and moments
-view(pVAdata%).ChanData(4, FyArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]);
-view(pVAdata%).ChanData(5, FzArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]);
-view(pVAdata%).ChanData(8, MxArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]);
-view(pVAdata%).ChanData(9, MyArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]);
-view(pVAdata%).ChanData(10, MzArray, MVCstartTime[TrialCount%]+6.5, MVCendTime[TrialCount%]);
+view(pVAdata%).ChanData(1, BicepArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]);
+view(pVAdata%).ChanData(2, TricepArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]);
+view(pVAdata%).ChanData(3, FxArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]); 'Get the arrays of forces and moments
+view(pVAdata%).ChanData(4, FyArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]);
+view(pVAdata%).ChanData(5, FzArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]);
+view(pVAdata%).ChanData(8, MxArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]);
+view(pVAdata%).ChanData(9, MyArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]);
+view(pVAdata%).ChanData(10, MzArray, MVCstartTime[TrialCount%]+6, MVCendTime[TrialCount%]);
 
-var ForceMomentIn[7000][6]; 'Turn vectors into single Force/Moment matrix
-var BicepArrayFFS[7000][1];
+var ForceMomentIn[6000][6]; 'Turn vectors into single Force/Moment matrix
+var BicepArrayFFS[6000][1];
 ArrConst(ForceMomentIn[][0],FxArray);
 ArrConst(ForceMomentIn[][1],FyArray);
 ArrConst(ForceMomentIn[][2],FzArray);
