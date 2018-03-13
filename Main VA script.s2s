@@ -1200,7 +1200,9 @@ var curTwitch[300];'
 counter%:=0;
 'if getTwitch% = 1 then
     Newsflash("Well Done! Now rest.",5,0,05,1);                              'Trial rest duration
-    yield(25);
+    seconds(0,1);
+    WaitTime:=25;
+    Waiting%();
     PreTwitchAmp:=ChanMeasure(1,11,LastPulseTime - .15,LastPulseTime - .05)
     view(pVAdata%).ChanData(1, curTwitch, LastPulseTime + .05, LastPulseTime + .35); 'Fill array with 300ms of data around twitch
     MVCtwitchIndex%:=Max(curTwitch[]); 'find index of twitch max
@@ -1234,8 +1236,10 @@ ArrConst(RestTwitch[],curTwitch);
     '--------------
     TrialVA:= MVCtwitchPP/RestingTwitchPP*100;
     VA_Arr[TwitchTrial%]:=TrialVA;
-    yield(90);
-    'Newsflash("Max!!!!",10,0,05,1);
+    seconds(0,1);
+    WaitTime:=85;
+    Waiting%();
+    Newsflash("Prepare for next contraction",5,0,05,1);
     TwitchTrial%+=1;
 'wait$:="No"
     if TwitchTrial% = 10 then
@@ -1807,7 +1811,11 @@ var curMEP[300];
                 'TMSSetRemoteControl%(1);
                 'armTMS%();
                 'TMSTriggerTMS%(1);
-Newsflash("Well Done! Now rest.",90,0,05,1);
+Newsflash("Well Done! Now rest.",5,0,05,1);
+seconds(0,1);
+WaitTime:=75;
+Waiting%();
+Newsflash("Arm Magstim now and prepare for next contraction",10,0,05,1);
 'if updateMEP% = 1 then
     BicepPreMEP:=ChanMeasure(1,11,LastStimTime - .15,LastStimTime - .05);
     TricepPreMEP:=ChanMeasure(2,11,LastStimTime - .15,LastStimTime - .05);
