@@ -669,6 +669,7 @@ proc AnalyzeMwave(curPeakToPeak)
         ' go back to idle or whatever to continue recording/triggering
         else 'plateau has been reached and we calculate and save final information
           SampleStop();                                   ' Stop sampling
+          Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
           var i%, PPvals%, ret%;
           PPvals% := FileNew(1);
           for i%:= 0 to len(mWavePPArr[])-1 do;
@@ -685,7 +686,6 @@ proc AnalyzeMwave(curPeakToPeak)
               FileClose();
           endif;
           View(MwaveThreshdata%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
-          Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
         endif;
     endif;
 end
@@ -964,9 +964,25 @@ WaitTime:=85;
 Waiting%();
 next;
     SampleStop();
-'FileSaveAs(subjectID$,-1);
     Protocol$:="Stopped";
-    View(pVAThreshdata%).FileSaveAs("", -1);
+    var i%, pVAmvc%, ret%;
+    pVAmvc% := FileNew(1);
+    for i%:= 0 to 2 do;
+        View(pVAmvc%).print("%g",TrialMVCin[i%][]);
+        View(pVAmvc%).print("%g",TrialMVCout[i%][]);
+        View(pVAmvc%).print("%g",TrialBicepMVC[i%][]);
+    next;
+    var ret%;
+    if (fd% >= 0) then
+      ret% := View(PPvals%).FileSaveAs(print$("%s%s", fName$, "_MVC_FMandEMG.txt"), 1, 0, "Save analysis as...");
+    if (ret% < 0) then
+      View(fd%);
+      FileClose(0, -1);
+    else
+      View(fd%);
+        FileClose();
+    endif;
+    View(pVAThreshdata%).FileSaveAs(print$("%s%s", fName$, "__MVC"), -1);
     View(pVAThreshdata%);
     FileClose(0,-1);
     View(ForceFeedbackBarGraph%);
