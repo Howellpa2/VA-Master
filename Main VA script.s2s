@@ -371,7 +371,7 @@ View(resultViewH%).Window(0,0,60,80); 'Make EMG results graph window sit between
 Colour(12,6);
 'M-wave Peak-to-Peak Bar Graph
 View(MwaveThreshdata%); ' View sampling data
-MwaveBarGraph%:=SetResult(3,1,0,"M-wave Level","");
+MwaveBarGraph%:=SetResult(1,1,0,"M-wave Level","");
 View(MwaveBarGraph%).XRange(0,3);
 View(MwaveBarGraph%).YRange(1,((0 * cScale)+ cOffset),(14*cScale)+cOffset);      'Set Y range to match source waveform channel
 View(MwaveBarGraph%).Window(60,0,100,100); 'Make bar graph window right portion of screen
@@ -637,7 +637,7 @@ func MwavePeakToPeak(startTime, endTime)
     printlog("current peak to peak:", maxVal - minVal);
     mWavePPArr[stimcount%]:= maxVal - minVal;
     if(stimcount% > 2) then
-    ArrConst(View(MwaveBarGraph%).[:3],mWavePPArr[stimcount%-3:stimcount%]);                      'Set bar graph to new peak to peak value
+    ArrConst(View(MwaveBarGraph%).[:3],mWavePPArr[stimcount%-2:stimcount%]);                      'Set bar graph to new peak to peak value
     DrawAll();  'update result views
     endif
   return maxVal - minVal;
@@ -662,27 +662,31 @@ proc AnalyzeMwave(curPeakToPeak)
     var MwaveMax, MwaveStimMax, avgPPdiff;
     var MwaveStimIntensity;
     if (stimcount% > 2) then
-        avgPPdiff:= (PPdiff[stimcount%-3] + PPdiff[stimcount%-2] + PPdiff[stimcount%-1])/3;
+        avgPPdiff:= (PPdiff[stimcount%-2] + PPdiff[stimcount%-1] + PPdiff[stimcount%])/3;
         if (avgPPdiff > 0.01) then
-        Newsflash("Increase Stimulus Intensity by 10mA",10.0,0,05,1);
-        'numStim%+=1; 'This is now in idle func
-    prevPeakToPeak:=curPeakToPeak;
-    ' go back to idle or whatever to continue recording/triggering
-    else 'plateau has been reached and we calculate and save final information
-        MwaveMax:=(curPeakToPeak);
-        MwaveStimMax:=stimcount% * 25; 'Final stim intensity if increase in 25mA every stimulation (should probably make this a usr input val)
-        MwaveStimIntensity:=MwaveStimMax * 1.2; 'Subsequent stimulus intensity (120% of M-Max)
-        printlog("M-Max: %f mV", MwaveMax);
-        printlog("M-Max Stimulus Intensity: %f mA", MwaveStimMax);
-        HaltRec%() 'Stops recording
-        var i%, PPvals%;
-        PPvals% := FileNew(1);
-        for i%:= 0 to len(mWavePPArr[])-1 do;
-            View(PPvals%).print("%g",mWavePPArr[i%]);
-        next;
-        Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
-        'go to next step
-    endif;
+          Newsflash("Increase Stimulus Intensity by 10mA",5,0,05,1);
+          prevPeakToPeak:=curPeakToPeak;
+        ' go back to idle or whatever to continue recording/triggering
+        else 'plateau has been reached and we calculate and save final information
+          SampleStop();                                   ' Stop sampling
+          var i%, PPvals%, ret%;
+          PPvals% := FileNew(1);
+          for i%:= 0 to len(mWavePPArr[])-1 do;
+              View(PPvals%).print("%g",mWavePPArr[i%]);
+          next;
+          var ret%;
+        	if (fd% >= 0) then
+            ret% := View(PPvals%).FileSaveAs(print$("%s%s", fName$, "_mWave_PeaktoPeaks.txt"), 1, 0, "Save analysis as...");
+          if (ret% < 0) then
+            View(fd%);
+            FileClose(0, -1);
+          else
+            View(fd%);
+              FileClose();
+          endif;
+          View(MwaveThreshdata%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
+          Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
+        endif;
     endif;
 end
 '----------------------------------------------------------------------------------------------------------------------
@@ -710,7 +714,8 @@ end;
 ' Halt M-wave recording
 '----------------------------------------------------------------------------------------------------------------------
 func HaltRec%()
-SampleStop();                                   ' Stop sampling
+
+
 'if (MwaveThreshdata%>0) and                     ' if no data in file, stop will close it
 '    (ViewKind(MwaveThreshdata%) <> 0) then MwaveThreshdata% := 0
 '    else View(MwaveThreshdata%).FileSaveAs("", -1);
@@ -1249,7 +1254,7 @@ ArrConst(RestTwitch[],curTwitch);
     if TwitchTrial% = 10 then
     ArrSum(VA_Arr[0:10],avgVA);
     SampleStop();
-    View(pVAdata%).FileSaveAs(print$("%s%s", fName$, "_pVA"), -1, 0, "Save analysis as...");
+    View(pVAdata%).FileSaveAs(print$("%s%s", fName$, "_pVA_Twitch_Data"), -1, 0, "Save analysis as...");
     var fName$, fd%;
       fName$ := View(cVAdata%).FileName$(3);
       fd% := FileNew(1);
@@ -1269,7 +1274,7 @@ ArrConst(RestTwitch[],curTwitch);
       next;
       var ret%;
       if (fd% >= 0) then
-        ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Twitch.txt"), 1, 0, "Save analysis as...");
+        ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_pVA_TwitchAmps.txt"), 1, 0, "Save analysis as...");
         if (ret% < 0) then
           View(fd%);
           FileClose(0, -1);
@@ -2667,9 +2672,12 @@ end;
 func TMSResetRemoteControl%(port%)
   return TMSSendOneByteCmd%(port%, 0x52, 0x40);
 end;
+'--------------------------------------------------'
+'Saving of all cortical VA protocols'
+'--------------------------------------------------'
 func Finish%()
-    SampleStop();
-    View(cVAdata%).FileSaveAs("cVA_", -1);
+    SampleStop();                                     'stop sampling'
+
     var fName$, fd%;
     	fName$ := View(cVAdata%).FileName$(3);
     	fd% := FileNew(1);
@@ -2679,7 +2687,7 @@ func Finish%()
     	if (fd% < 0) then
     		printlog("%sSTIM\t%sVAL\n", fName$, fName$);
     	else
-    		View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$);
+    		View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$); 'Do I need this?'
     	endif;
     	var i%;
     	for i% := 0 to 5 do
@@ -2689,7 +2697,160 @@ func Finish%()
     	next;
     	var ret%;
     	if (fd% >= 0) then
-    		ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Twitch.txt"), 1, 0, "Save analysis as...");
+
+      docase
+'--------------------------------------------------'
+'File naming for arm posture protocols'
+'--------------------------------------------------'
+      case cVAprotocol$ = "Arm Posture" then
+        docase
+          case SubProtocol$ = "45deg" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm45_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+          case SubProtocol$ = "90deg" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm90_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+          case SubProtocol$ = "135deg" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Arm135_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+'--------------------------------------------------'
+'File naming for painful cutaneous reflex protocols'
+'--------------------------------------------------'
+      case cVAprotocol$ = "Cutaneous Reflex" then
+        docase
+          case SubProtocol$ = "40ms Cutaneous Reflex" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR40_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+          case SubProtocol$ = "70ms Cutaneous Reflex" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR70_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+          case SubProtocol$ = "100ms Cutaneous Reflex" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_CR100_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+'--------------------------------------------------'
+'File naming for paired pulse protocols'
+'--------------------------------------------------'
+      case cVAprotocol$ = "Paired Pulse" then
+        docase
+          case SubProtocol$ = "1.5ms PP" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP1o5_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+          case SubProtocol$ = "10ms PP" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP10_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+          case SubProtocol$ = "30ms PP" then
+          docase
+            case PercentMVC$ = "cVAtestZero" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_00p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_00p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestFifty" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_50p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_50p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestSeventy" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_75p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_75p.txt"), 1, 0, "Save analysis as...");
+            case PercentMVC$ = "cVAtestOnehundred" then
+              View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_100p"), -1);
+              ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_100p.txt"), 1, 0, "Save analysis as...");
+          endcase;
+      endcase;
+      docase
     		if (ret% < 0) then
     			View(fd%);
     			FileClose(0, -1);
