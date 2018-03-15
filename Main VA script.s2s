@@ -48,6 +48,7 @@ var TwitchTrial%;
 var VA_Arr[10];
 var MVCtwitchArr[10];
 var RestingTwitchArr[10];
+var MVCtwitchTimeArr[10];
 var MVCtwitchAmp;
 var MVCtwitchPP;
 var RestingTwitchIndex%;
@@ -69,6 +70,8 @@ var ISI;
 var SubProtocol$;
 var NormalizedMEP;
 var NormedMEPArr[6];
+var PreMEParray[6];
+var MEPTimeArr[6];
 var bestPestThreshold;
 var maxOutputStim%;
 var paftn:=0;
@@ -1211,6 +1214,7 @@ counter%:=0;
     MVCtwitchPP:=MVCtwitchAmp - PreTwitchAmp;
     getTwitch%:=0;
     MVCtwitchArr[TwitchTrial%]:=MVCtwitchPP;
+    MVCtwitchTimeArr[TwitchTrial%]:=MVCtwitchTime;
 
       SampleKey(t$);                                              'Trigger digitimer for resting twitch
             RestingTwitchTime:=View(pVAdata%).Maxtime();
@@ -1243,9 +1247,36 @@ ArrConst(RestTwitch[],curTwitch);
     TwitchTrial%+=1;
 'wait$:="No"
     if TwitchTrial% = 10 then
-        ArrSum(VA_Arr[0:10],avgVA);
+    ArrSum(VA_Arr[0:10],avgVA);
     SampleStop();
-    View(pVAdata%).FileSaveAs("", -1);
+    View(pVAdata%).FileSaveAs(print$("%s%s", fName$, "_pVA"), -1, 0, "Save analysis as...");
+    var fName$, fd%;
+      fName$ := View(cVAdata%).FileName$(3);
+      fd% := FileNew(1);
+      if (fd% < 0) then
+        printlog("Could not open text file to save data, printing to log window.\n");
+      endif;
+      if (fd% < 0) then
+        printlog("%sSTIM\t%sVAL\n", fName$, fName$);
+      else
+        View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$);
+      endif;
+      var i%;
+      for i% := 0 to 9 do
+          View(fd%).print("%d\t%f\n", i%, VA_Arr[i%]);
+          View(fd%).print("%d\t%f\n", i%, MEPTimeArr[i%]);
+        next;
+      next;
+      var ret%;
+      if (fd% >= 0) then
+        ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Twitch.txt"), 1, 0, "Save analysis as...");
+        if (ret% < 0) then
+          View(fd%);
+          FileClose(0, -1);
+        else
+          View(fd%);
+          FileClose();
+        endif;
     View(pVAdata%);
     FileClose(0,-1);
     pVAdata%:=-1;
@@ -1806,11 +1837,8 @@ end;
 ' Get bicep/tricep MEP ratios
 '----------------------------------------------------------------------------------------------------------------------
 func getMEP%()
-var i%,BicepPreMEP,TricepPreMEP,MEPIndex%,MEPTime,TrialVA,BicepMEP,TricepMEP;
+var i%,BicepPreMEP[6],TricepPreMEP[6],MEPIndex%[6],MEPTime[6],TrialVA,BicepMEP[6],TricepMEP[6];
 var curMEP[300];
-                'TMSSetRemoteControl%(1);
-                'armTMS%();
-                'TMSTriggerTMS%(1);
 Newsflash("Well Done! Now rest.",5,0,05,1);
 seconds(0,1);
 WaitTime:=75;
@@ -1819,6 +1847,7 @@ Newsflash("Arm Magstim now and prepare for next contraction",10,0,05,1);
 'if updateMEP% = 1 then
     BicepPreMEP:=ChanMeasure(1,11,LastStimTime - .15,LastStimTime - .05);
     TricepPreMEP:=ChanMeasure(2,11,LastStimTime - .15,LastStimTime - .05);
+    PreMEParray[TrialCount%]:=BicepPreMEP/TricepPreMEP;
     view(pVAdata%).ChanData(2, curMEP, LastStimTime + .05, LastStimTime + .35); 'Fill array with 300ms of data around twitch
     MEPIndex%:=Max(curMEP[]); 'find index of twitch max
     MEPTime:= (LastStimTime + .05 + (MEPIndex%/1000)); 'convert index of twitch max to time in ms
@@ -1826,6 +1855,7 @@ Newsflash("Arm Magstim now and prepare for next contraction",10,0,05,1);
     TricepMEP:=ChanMeasure(2,11,MEPTime-.025,MEPTime+.025);' RMS Amplitude over 50ms of Bicep EMG at MEP max amp
     NormalizedMEP:=BicepMEP/TricepMEP;
     NormedMEPArr[TrialCount%]:=NormalizedMEP;
+    MEPTimeArr[TrialCount%]:=MEPTime;
     paftn:=view(cVAdata%).MaxTime();
     waitforTMS%+=1;
     return 1
@@ -2640,6 +2670,33 @@ end;
 func Finish%()
     SampleStop();
     View(cVAdata%).FileSaveAs("cVA_", -1);
+    var fName$, fd%;
+    	fName$ := View(cVAdata%).FileName$(3);
+    	fd% := FileNew(1);
+    	if (fd% < 0) then
+    		printlog("Could not open text file to save data, printing to log window.\n");
+    	endif;
+    	if (fd% < 0) then
+    		printlog("%sSTIM\t%sVAL\n", fName$, fName$);
+    	else
+    		View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$);
+    	endif;
+    	var i%;
+    	for i% := 0 to 5 do
+    			View(fd%).print("%d\t%f\n", i%, NormedMEPArr[i%]);
+          View(fd%).print("%d\t%f\n", i%, MEPTimeArr[i%]);
+    		next;
+    	next;
+    	var ret%;
+    	if (fd% >= 0) then
+    		ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_Twitch.txt"), 1, 0, "Save analysis as...");
+    		if (ret% < 0) then
+    			View(fd%);
+    			FileClose(0, -1);
+    		else
+    			View(fd%);
+    			FileClose();
+    		endif;
     View(cVAdata%);
     FileClose(0,-1);
     cVAdata%:=-1;
