@@ -723,12 +723,12 @@ func HaltRec%()
 '  FileClose(0,-1);
 '    MwaveThreshdata%:= -1;
 'endif;
-  ToolbarEnable(2, 1);                ' disables button 2
-  ToolbarEnable(3, 1);                          ' enables button 3
-  ToolbarEnable(4, 1);                          ' disables button 4
-  ToolbarEnable(6, 1);                          ' disables button 6
-  ToolbarEnable(5, 1);              ' and disables button 5
-MwaveButtonDisable%:=5;              ' sets the global varible to track button disables
+  'ToolbarEnable(2, 1);                ' disables button 2
+  'ToolbarEnable(3, 1);                          ' enables button 3
+  'ToolbarEnable(4, 1);                          ' disables button 4
+  'ToolbarEnable(6, 1);                          ' disables button 6
+  'ToolbarEnable(5, 1);              ' and disables button 5
+'MwaveButtonDisable%:=5;              ' sets the global varible to track button disables
 'fileMwave% += 1;
 'SampleAutoName$(Print$("%s_Mwave", subjectID$));
 return 1;                    ' and stay in current toolbar
