@@ -557,11 +557,13 @@ if (cVAdata%>=0) then
                 armTMS%();
                 TMSTriggerTMS%(1);                                      'Send pulse to magstim
                 'updateMEP%:= 0;
+                SampleKey(s$);
                 getMEP%();
                 'updateMEP%:=0;
             case cVAprotocol$ = "Paired Pulse" then
                 'armTMS%();
                     TMSTriggerTMS%(1);                                      'Send pulse to magstim
+                    SampleKey(s$);
                     getMEP%();
             case PCSprotocol$ = "40ms Cutaneous Reflex" then
                 'armTMS%();
@@ -570,7 +572,8 @@ if (cVAdata%>=0) then
                 'if curTime > DigiStimTime + .035 then
                     TMSTriggerTMS%(1);
                     actualTriggerTime:=view(cVAdata%).MaxTime();
-                        getMEP%();
+                    SampleKey(s$);
+                    getMEP%();
                 'endif;
             case PCSprotocol$ = "70ms Cutaneous Reflex" then
                 'armTMS%();
@@ -578,6 +581,7 @@ if (cVAdata%>=0) then
                 SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
                 if curTime > DigiStimTime + .065 then
                         TMSTriggerTMS%(1);
+                        SampleKey(s$);
                         getMEP%();
                 endif;                                    'Send pulse to digitimer then magstim 70ms later
             case PCSprotocol$ = "100ms Cutaneous Reflex" then
@@ -586,6 +590,7 @@ if (cVAdata%>=0) then
                 SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
                 if curTime > DigiStimTime + .095 then
                         TMSTriggerTMS%(1);
+                        SampleKey(s$);
                         getMEP%();
                 endif;                                 'Send pulse to digitimer then magstim 100ms later
             endcase;
@@ -955,7 +960,6 @@ Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial s
 seconds(0,1);
 WaitTime:=6;
 Waiting%();
-'yield(7);                                                                'Trial record duration
 MVCendTime[i%]:=View(pVAThreshdata%).Maxtime();                                 'Track MVC Trial end time
 FindMVC();                                                                'Find Average MVC of Trial
 Newsflash("Well Done! Now rest.",5,0,05,1);                              'Trial rest duration

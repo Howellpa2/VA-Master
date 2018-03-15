@@ -1,0 +1,93 @@
+Configuration label pVA
+Comment             
+Saved by version    0.00
+Data file type      64-bit smrx
+Maximum channels    32
+
+ #  Type      Source    Port  Title     EvtRate  AdcRate  Scale    Offset   Units  Pts Pre Comment
+ 1  Waveform  1401       0    Bicep              2083     1100     0        μV            
+ 2  Waveform  1401       1    Tricep             2083     1100     0        μV            
+ 3  Waveform  1401      10    Fx                 2083     1        0                       
+ 4  Waveform  1401      11    Fy                 2083     1        0                       
+ 5  Waveform  1401      12    Fz                 2083     1        0                       
+ 6  Event+    1401       0    Digi      50                                                 
+ 7  Event+    1401       1    TMStrig   50                                                 
+ 8  Waveform  1401      13    Mx                 2083     1        0                       
+ 9  Waveform  1401      14    My                 2083     1        0                       
+10  Waveform  1401      15    Mz                 2083     1        0                       
+31  Marker    User            Keyboard  1                                                  
+Waveform channels   8
+WaveMark channels   0
+Event channels      2
+
+Resolution
+Microseconds/tick   10.0
+Maximum run time    More than 10 years!
+Base ADC rate       16667
+Assumed 1401 type   General compatibility
+Optimise method     Partial: fixed time units
+Groups of same rate Keep same sample rate groups
+
+Sample mode         Continuous
+
+Automation
+Directory path      C:\Users\Pasha\Desktop\Spike Data
+Name template       GC
+Auto-repeat on      No
+Repeat count        0
+Auto-comment        No
+Auto-save           Yes
+File triggering     Use previous
+Stop at time        Not set
+Stop at size        Not set
+Flush to disk       5:00
+
+Waveform outputs    0
+
+Sequencer type      Graphic
+Sequencer control   Keyboard and panel and script
+Minimum instructions 0
+Minimum table space 0
+Sequencer period (ms) 1
+DAC full scale      5
+DAC zero            0
+DAC units           V
+Absolute levels     No
+Display in ms       No
+Used DAC channels   10
+Used DIG out bits   
+
+Generated sequence
+            SET    1,1,0           ; Get rate & scaling OK
+
+            VAR    V45,LoopC=0     ; Define variable for section loops
+            VAR    V46,RampC=0     ; Define variable for ramp loops
+            VAR    V47,DelayC=0    ; Define variable for delay loops
+            VAR    V48,Delay2=0    ;  and another one
+            VAR    V49,Delay3=0    ;  and another one
+            VAR    V50,Delay4=0    ;  and another one
+            VAR    V51,Delay5=0    ;  and another one
+
+E0:         DAC    0,0
+            DAC    1,0
+            DELAY  s(0.997)-1
+            HALT                   ; End of this sequence section
+
+EA:     't  DAC    0,5
+            DAC    1,0
+            DELAY  s(0.098)-1
+            DAC    0,0
+            DELAY  s(0.898)-1
+            HALT                   ; End of this sequence section
+
+EB:     'f  DAC    0,5
+            DAC    1,0
+            DELAY  s(0.038)-1
+            DAC    1,1
+            DELAY  s(0.059)-1
+            DAC    0,0
+            DELAY  s(0.039)-1
+            DAC    1,0
+            DELAY  s(0.858)-1
+            HALT                   ; End of this sequence section
+
