@@ -26,6 +26,7 @@ var MwaveThreshdata%:=-1;
 var MwaveBarGraph%:=-1;
 var ForceFeedbackBarGraph%:=-1;
 var level;
+var lTime;
 var FeedbackTime;
 var pVAButtonDisable% := 0;
 var prevPeakToPeak:= -2;
@@ -164,7 +165,7 @@ var mWaveTriggers%[50];
 INITIALIZESubjectData();
 proc INITIALIZESubjectData()
 subjectID$ := Input$("Enter subject ID", "");
-FilePathSet("", 3);
+FilePathSet("", 0);
 SampleAutoFile(1);
 end;
 'OOOOOOOOOOOOOOOOOO'
@@ -446,12 +447,15 @@ if ((Protocol$ = "pVA_Thresh_Protocol")) then
     FrontView(pVAThreshdata%);
     'if(View(pVAThreshdata%).Maxtime() - .2 >= curTime) then
     'if(View(pVAThreshdata%).Maxtime() - FeedbackTime >= 0) then
-        curTime := View(pVAThreshdata%).Maxtime();
-        ForceFeedbackLevel:= ChanValue(BicepEMGchan%,MaxTime()-BinSize(1)); 'do I want it as current value?
-        'ForceFeedbackLevel:=view(pVAThreshdata%).ChanMeasure(BicepEMGchan%,11,curTime-.5,curTime); 'or as RMS amp over the last 200ms
-        ArrConst(View(ForceFeedbackBarGraph%).[:1],ForceFeedbackLevel);
-        DrawAll();
-    'endif;
+  curTime := View(pVAThreshdata%).Maxtime();
+  if curTime > lTime then
+    ForceFeedbackLevel:= View(pVAThreshdata%).ChanValue(BicepEMGchan%,MaxTime()-BinSize(1)); 'do I want it as current value?
+    'ForceFeedbackLevel:=view(pVAThreshdata%).ChanMeasure(BicepEMGchan%,11,curTime-.5,curTime); 'or as RMS amp over the last 200ms
+    ArrConst(View(ForceFeedbackBarGraph%).[:1],ForceFeedbackLevel);
+    DrawAll();
+    lTime:=curTime;
+  endif;
+  return 1;
 endif;
 if ((Protocol$ = "REC_pVA")) then
     FrontView(pVAdata%);
@@ -676,6 +680,7 @@ proc AnalyzeMwave(curPeakToPeak)
           SampleStop();                                   ' Stop sampling
           Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
           var i%, PPvals%, ret%;
+          fName$ := View(MwaveThreshData%).FileName$(3);
           PPvals% := FileNew(1);
           for i%:= 0 to len(mWavePPArr[])-1 do;
               View(PPvals%).print("%g",mWavePPArr[i%]);
@@ -910,12 +915,12 @@ View(pVAThreshdata%).Window(0,0,60,100);            'Make data window right half
 ChanHide(31);
 ViewTrigger(TrigEventChan%, .1, .9, 1,1);
 Protocol$:="pVA_Thresh_Protocol"; 'Set Protocol
-resultViewH%:=SetResult(-1,7000, BinSize(1), -.1, "Force", "s", ChanUnits$(1), "Time", "Force"); 'I think we might just need the bar graph? but maybe not, because calcs are done from result views?
-View(resultViewH%).DrawMode(3, 3);
-View(resultViewH%).YRange(1, -.1, .1);
-View(resultViewH%).WindowVisible(0);
-View(resultViewH%).CursorNew(XToBin(0));
-View(resultViewH%).Window(0,0,60,50); 'Make results graph window sit between log view and sampling data
+resultViewH%:=SetResult(-1,6000, BinSize(1), -.1, "Force", "s", ChanUnits$(1), "Time", "Force"); 'I think we might just need the bar graph? but maybe not, because calcs are done from result views?
+'View(resultViewH%).DrawMode(3, 3);
+'View(resultViewH%).YRange(1, -.1, .1);
+'View(resultViewH%).WindowVisible(0);
+'View(resultViewH%).CursorNew(XToBin(0));
+'View(resultViewH%).Window(0,0,60,50); 'Make results graph window sit between log view and sampling data
 Colour(12,6);
 'Force Feedback Bar Graph
 FrontView(pVAThreshdata%);
@@ -927,7 +932,7 @@ View(ForceFeedbackBarGraph%).Window(60,0,100,100); 'Make bar graph window right 
 FrontView(LogHandle());              'Bring the Log view to the front
 FrontView(ForceFeedbackBarGraph%);          'Bring the bar graph results view to the front
 FrontView(pVAThreshdata%);                  'Bring the data view to the front
-FrontView(resultViewH%);                    'Bring the filtered data view to the front
+'FrontView(resultViewH%);                    'Bring the filtered data view to the front
 
 var ok%;', dx, dy, dz, rotx, roty, rotz;
 var delta[6]; 'Cant use this because apparently Spike2 hates linear algebra
@@ -971,6 +976,7 @@ next;
     Protocol$:="Stopped";
     var i%, pVAmvc%, ret%;
     pVAmvc% := FileNew(1);
+    fName$ := View(pVAThreshdata%).FileName$(3);
     for i%:= 0 to 2 do;
         View(pVAmvc%).print("%g",TrialMVCin[i%][]);
         View(pVAmvc%).print("%g",TrialMVCout[i%][]);
@@ -1204,15 +1210,15 @@ FrontView(pVAdata%);                  'Bring the data view to the front
 
 'Newsflash("Well Done! Now rest.",10,0,05,1);                              'Trial rest duration
 '    yield(90);
-    if TwitchTrial% = 9 then
-        ArrSum(VA_Arr[0:10],avgVA);
-    SampleStop();
-    View(pVAdata%).FileSaveAs("", -1);
-    View(pVAdata%);
-    FileClose(0,-1);
-    pVAdata%:=-1;
-    pVAButtonDisable%:= 3; ' When finished recording allow cVA button
-    endif
+''    if TwitchTrial% = 9 then
+''        ArrSum(VA_Arr[0:10],avgVA);
+''    SampleStop();
+''    View(pVAdata%).FileSaveAs("", -1);
+''    View(pVAdata%);
+''    FileClose(0,-1);
+''    pVAdata%:=-1;
+''    pVAButtonDisable%:= 3; ' When finished recording allow cVA button
+''    endif
 'next;
 
 
@@ -1268,19 +1274,20 @@ ArrConst(RestTwitch[],curTwitch);
     seconds(0,1);
     WaitTime:=85;
     Waiting%();
-    Newsflash("Prepare for next contraction",5,0,05,1);
     TwitchTrial%+=1;
-'wait$:="No"
-    if TwitchTrial% = 10 then
-    ArrSum(VA_Arr[0:10],avgVA);
-    SampleStop();
-    View(pVAdata%).FileSaveAs(print$("%s%s", fName$, "_pVA_Twitch_Data"), -1, 0, "Save analysis as...");
-    var fName$, fd%;
-      fName$ := View(cVAdata%).FileName$(3);
+    if TwitchTrial% < 9 then
+      Newsflash("Prepare for next contraction",5,0,05,1);
+    endif;
+    if TwitchTrial% = 9 then
+      ArrSum(VA_Arr[0:10],avgVA);
+      SampleStop();
+      var fName$, fd%;
+      fName$ := View(pVAdata%).FileName$(3);
+      View(pVAdata%).FileSaveAs(print$("%s%s", fName$, "_pVA_Twitch_Data"), -1, 0, "Save analysis as...");
       fd% := FileNew(1);
       if (fd% < 0) then
         printlog("Could not open text file to save data, printing to log window.\n");
-      endif;
+        endif;
       if (fd% < 0) then
         printlog("%sSTIM\t%sVAL\n", fName$, fName$);
       else
@@ -1291,7 +1298,6 @@ ArrConst(RestTwitch[],curTwitch);
           View(fd%).print("%d\t%f\n", i%, VA_Arr[i%]);
           View(fd%).print("%d\t%f\n", i%, MEPTimeArr[i%]);
         next;
-      next;
       var ret%;
       if (fd% >= 0) then
         ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_pVA_TwitchAmps.txt"), 1, 0, "Save analysis as...");
@@ -1668,14 +1674,14 @@ if(View(cVAdata%).Maxtime() - paftn >= 90) then
     Sound("SS")
 endif;
 
-if waitforTMS% = 5 then
-    SampleStop();
-    View(cVAdata%).FileSaveAs("cVA_atRest_", -1);
-    View(cVAdata%);
-    FileClose(0,-1);
-    cVAdata%:=-1;
-    waitforTMS%:= 0;
-    endif;
+'if waitforTMS% = 5 then
+''    SampleStop();
+''    View(cVAdata%).FileSaveAs("cVA_atRest_", -1);
+''    View(cVAdata%);
+''    FileClose(0,-1);
+''    cVAdata%:=-1;
+''    waitforTMS%:= 0;
+''    endif;
 return 1;
 end;
 '-----------------------
@@ -1728,14 +1734,14 @@ if(View(cVAdata%).Maxtime() - paftn >= 5) then
     Sound("SS")
 endif;
 
-if waitforTMS% = 5 then
-    SampleStop();
-    View(cVAdata%).FileSaveAs("cVA_at50_", -1);
-    View(cVAdata%);
-    FileClose(0,-1);
-    cVAdata%:=-1;
-    waitforTMS% := 0;
-    endif;
+'if waitforTMS% = 5 then
+''    SampleStop();
+''    View(cVAdata%).FileSaveAs("cVA_at50_", -1);
+''    View(cVAdata%);
+''    FileClose(0,-1);
+''    cVAdata%:=-1;
+''    waitforTMS% := 0;
+''    endif;
 return 1;
 end;
 '-----------------------
@@ -1788,14 +1794,14 @@ if(View(cVAdata%).Maxtime() - paftn >= 90) then
     Sound("SS")
 endif;
 
-if waitforTMS% = 5 then
-    SampleStop();
-    View(cVAdata%).FileSaveAs("cVA_at70_", -1);
-    View(cVAdata%);
-    FileClose(0,-1);
-    cVAdata%:=-1;
-    waitforTMS% := 0;
-    endif;
+'if waitforTMS% = 5 then
+''    SampleStop();
+''    View(cVAdata%).FileSaveAs("cVA_at70_", -1);
+''    View(cVAdata%);
+''    FileClose(0,-1);
+''    cVAdata%:=-1;
+''    waitforTMS% := 0;
+''    endif;
 return 1;
 end;
 '-----------------------
@@ -1848,14 +1854,14 @@ if(View(cVAdata%).Maxtime() - paftn >= 90) then
     Sound("SS")
 endif;
 
-if waitforTMS% = 5 then
-    SampleStop();
-    View(cVAdata%).FileSaveAs("cVA_at100_", -1);
-    View(cVAdata%);
-    FileClose(0,-1);
-    cVAdata%:=-1;
-    waitforTMS% := 0;
-    endif;
+'if waitforTMS% = 5 then
+''    SampleStop();
+''    View(cVAdata%).FileSaveAs("cVA_at100_", -1);
+''    View(cVAdata%);
+''    FileClose(0,-1);
+''    cVAdata%:=-1;
+''    waitforTMS% := 0;
+''    endif;
 return 1;
 end;
 '----------------------------------------------------------------------------------------------------------------------
