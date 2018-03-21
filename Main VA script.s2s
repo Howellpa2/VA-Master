@@ -26,6 +26,7 @@ var MwaveThreshdata%:=-1;
 var MwaveBarGraph%:=-1;
 var ForceFeedbackBarGraph%:=-1;
 var level;
+var s$:="something";
 var lTime;
 var FeedbackTime;
 var pVAButtonDisable% := 0;
@@ -76,6 +77,8 @@ var MEPTimeArr[6];
 var bestPestThreshold;
 var maxOutputStim%;
 var paftn:=0;
+var rNum%:=2;
+var numZero%, numFifty%, numSeventy%, numOneHundred%;
 'var RMSin[3];
 'var TrialrmsMzIn;
 var avgVA;
@@ -102,6 +105,8 @@ var interStimulusIntervalMax:=5;
 var interStimulusInterval:=3.5;
 var jitter := 1;
 var startUp%:=1;
+var LocationData%;
+'var ;
 
 ' basically lets us fire at a different intensity during the session
 const  maxEpochs% := 1000;
@@ -139,7 +144,7 @@ var TrialBicepMVC[3][1];
 var MVCout;
 var MVCin[6];
 var avgMVCout;
-var avgBicepMVC:=850;
+var avgBicepMVC:=570;
 var avgMVCin[6];
 const FxChan%:= 3; 'Fx channel set
 const FyChan%:= 4; 'Fy channel set
@@ -154,6 +159,8 @@ var cVAtestSeventyComplete%:=0;
 var cVAtestOnehundredComplete%:=0;
 var cVAtestAllComplete%:=0;
 var RestingTwitchTime;
+var WaitTime;
+var PercentMVC$;
 
 if (TMSOpenConnection%(TMSMAGSTIM200SPORT%) < 0) then
   printlog("Error opening connection to Magstim\n");
@@ -372,7 +379,7 @@ View(resultViewH%).Window(0,0,60,80); 'Make EMG results graph window sit between
 Colour(12,6);
 'M-wave Peak-to-Peak Bar Graph
 View(MwaveThreshdata%); ' View sampling data
-MwaveBarGraph%:=SetResult(1,1,0,"M-wave Level","");
+MwaveBarGraph%:=SetResult(3,1,0,"M-wave Level","");
 View(MwaveBarGraph%).XRange(0,3);
 View(MwaveBarGraph%).YRange(1,((0 * cScale)+ cOffset),(14*cScale)+cOffset);      'Set Y range to match source waveform channel
 View(MwaveBarGraph%).Window(60,0,100,100); 'Make bar graph window right portion of screen
@@ -560,13 +567,14 @@ if (cVAdata%>=0) then
                 TMSSetRemoteControl%(1);
                 armTMS%();
                 TMSTriggerTMS%(1);                                      'Send pulse to magstim
-                'updateMEP%:= 0;
+                LastStimTime:=view(cVAdata%).MaxTime();
                 SampleKey(s$);
                 getMEP%();
                 'updateMEP%:=0;
             case cVAprotocol$ = "Paired Pulse" then
                 'armTMS%();
                     TMSTriggerTMS%(1);                                      'Send pulse to magstim
+                    LastStimTime:=view(cVAdata%).MaxTime();
                     SampleKey(s$);
                     getMEP%();
             case PCSprotocol$ = "40ms Cutaneous Reflex" then
@@ -591,12 +599,13 @@ if (cVAdata%>=0) then
             case PCSprotocol$ = "100ms Cutaneous Reflex" then
                 'armTMS%();
                 DigiStimTime:=view(cVAdata%).MaxTime();
-                SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
-                if curTime > DigiStimTime + .095 then
+                'SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
+                'if curTime > DigiStimTime + .095 then
                         TMSTriggerTMS%(1);
-                        SampleKey(s$);
+                    SampleKey(s$);
+                    SampleKey(t$);
                         getMEP%();
-                endif;                                 'Send pulse to digitimer then magstim 100ms later
+                'endif;                                 'Send pulse to digitimer then magstim 100ms later
             endcase;
             LastStimTime:=View(cVAdata%).Maxtime();                     'Reset when the last pulse was sent
             updateMEP%:=1;                                              'Get twitch data
@@ -611,6 +620,24 @@ endif;
 '----------------------------------------------------------------------------------------------------------------------------------------------------'
 '----------------------------------------------------------------rMT Idle Functions------------------------------------------'
 '----------------------------------------------------------------------------------------------------------'
+if ((Protocol$ = "rMT")) then
+  if (LocationData%>=0) then
+    curTime := View(LocationData%).Maxtime();
+    if (updateNecessary% and (View(LocationData%).Maxtime()-currentTrigTime >= .9)) then
+      printlog("Updating view\n");
+      updateLocation();
+      DoMTAnalyze%();
+      View(resultViewH%).Draw();
+      updateNecessary%:=0;
+    endif;
+    newestEvent := View(LocationData%).NextTime(7, currentTrigTime+.1);
+    if (newestEvent > currentTrigTime) then
+      currentTrigTime := newestEvent;
+      updateNecessary%:=1;
+    endif;
+  endif;
+endif;
+'------------------------------------------'
 if ((Protocol$ = "rMT")) then
 if (data%>=0) then
   curTime := View(data%).Maxtime();
@@ -646,7 +673,7 @@ func MwavePeakToPeak(startTime, endTime)
     printlog("current peak to peak:", maxVal - minVal);
     mWavePPArr[stimcount%]:= maxVal - minVal;
     if(stimcount% > 2) then
-    ArrConst(View(MwaveBarGraph%).[:3],mWavePPArr[stimcount%-2:stimcount%]);                      'Set bar graph to new peak to peak value
+    ArrConst(View(MwaveBarGraph%).[:3],mWavePPArr[stimcount%-3:stimcount%]);                      'Set bar graph to new peak to peak value
     DrawAll();  'update result views
     endif
   return maxVal - minVal;
@@ -670,6 +697,7 @@ end
 proc AnalyzeMwave(curPeakToPeak)
     var MwaveMax, MwaveStimMax, avgPPdiff;
     var MwaveStimIntensity;
+    var fName$,ret%;
     if (stimcount% > 2) then
         avgPPdiff:= (PPdiff[stimcount%-2] + PPdiff[stimcount%-1] + PPdiff[stimcount%])/3;
         if (avgPPdiff > 0.01) then
@@ -679,26 +707,27 @@ proc AnalyzeMwave(curPeakToPeak)
         else 'plateau has been reached and we calculate and save final information
           SampleStop();                                   ' Stop sampling
           Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
-          var i%, PPvals%, ret%;
+          var i%, PPvals%;
           fName$ := View(MwaveThreshData%).FileName$(3);
           PPvals% := FileNew(1);
           for i%:= 0 to len(mWavePPArr[])-1 do;
               View(PPvals%).print("%g",mWavePPArr[i%]);
           next;
-          var ret%;
-        	if (fd% >= 0) then
+          if (PPvals% >= 0) then
             ret% := View(PPvals%).FileSaveAs(print$("%s%s", fName$, "_mWave_PeaktoPeaks.txt"), 1, 0, "Save analysis as...");
           if (ret% < 0) then
-            View(fd%);
+            View(PPvals%);
             FileClose(0, -1);
           else
-            View(fd%);
+            View(PPvals%);
               FileClose();
           endif;
-          View(MwaveThreshdata%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
+
         endif;
+        View(MwaveThreshdata%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
     endif;
-end
+endif;
+end;
 '----------------------------------------------------------------------------------------------------------------------
 ' Reset M-max
 '----------------------------------------------------------------------------------------------------------------------
@@ -803,7 +832,8 @@ end;
 proc cVAToolbarButtons()            ' Buttons for cVA Toolbar
 ToolbarClear();
 ToolbarSet(0,"",Idle%);                  ' Call Idle%() whenever there is free time
-ToolbarSet(7,"Set Parameters", SetParameters%);
+ToolbarSet(8,"Set Parameters", SetParameters%);
+ToolbarSet(7,"Find MT location", LocateMT%);
 ToolbarSet(6,"Find rMT", GetrMT%);
 ToolbarSet(5,"Arm Posture", ArmPostureToolbar%);
 ToolbarSet(4,"Paired Pulse", PairedPulseToolbar%);
@@ -962,34 +992,35 @@ for i%:=0 to 2 do
     MVCstartTime[i%]:=View(pVAThreshdata%).Maxtime();                               'Track MVC Trial start time
     FeedbackTime:=View(pVAThreshdata%).Maxtime();
 Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
-seconds(0,1);
-WaitTime:=6;
-Waiting%();
+    seconds(0,1);
+    Yield(6);
+'WaitTime:=6;
+'Waiting%();
 MVCendTime[i%]:=View(pVAThreshdata%).Maxtime();                                 'Track MVC Trial end time
 FindMVC();                                                                'Find Average MVC of Trial
-Newsflash("Well Done! Now rest.",5,0,05,1);                              'Trial rest duration
-seconds(0,1);
-WaitTime:=85;
-Waiting%();
+Newsflash("Well Done! Now rest.",85,0,05,1);                              'Trial rest duration
+'seconds(0,1);
+'WaitTime:=85;
+'Waiting%();
 next;
     SampleStop();
     Protocol$:="Stopped";
-    var i%, pVAmvc%, ret%;
+    var j%, pVAmvc%, ret%, fName$;
     pVAmvc% := FileNew(1);
     fName$ := View(pVAThreshdata%).FileName$(3);
-    for i%:= 0 to 2 do;
-        View(pVAmvc%).print("%g",TrialMVCin[i%][]);
-        View(pVAmvc%).print("%g",TrialMVCout[i%][]);
-        View(pVAmvc%).print("%g",TrialBicepMVC[i%][]);
+for j%:= 0 to 2 do;
+
+        View(pVAmvc%).print("%g",TrialMVCin[j%][:]);
+        View(pVAmvc%).print("%g",TrialMVCout[j%][:]);
+        View(pVAmvc%).print("%g",TrialBicepMVC[j%][:]);
     next;
-    var ret%;
-    if (fd% >= 0) then
-      ret% := View(PPvals%).FileSaveAs(print$("%s%s", fName$, "_MVC_FMandEMG.txt"), 1, 0, "Save analysis as...");
+    if (pVAmvc% >= 0) then
+      ret% := View(pVAmvc%).FileSaveAs(print$("%s%s", fName$, "_MVC_FMandEMG.txt"), 1, 0, "Save analysis as...");
     if (ret% < 0) then
-      View(fd%);
+      View(pVAmvc%);
       FileClose(0, -1);
     else
-      View(fd%);
+      View(pVAmvc%);
         FileClose();
     endif;
     View(pVAThreshdata%).FileSaveAs(print$("%s%s", fName$, "__MVC"), -1);
@@ -1000,6 +1031,7 @@ next;
     View(resultViewH%);
     FileClose(0,-1);
     pVAThreshdata%:=-1;
+endif;
 return 1 'stay in the current toolbar
 end;
 func FindMVC()
@@ -1233,7 +1265,7 @@ var i%,PreTwitchAmp,MVCtwitchIndex%,MVCtwitchTime,RestingTwitchTime,TrialVA,Rest
 var curTwitch[300];'
 counter%:=0;
 'if getTwitch% = 1 then
-    Newsflash("Well Done! Now rest.",5,0,05,1);                              'Trial rest duration
+    Newsflash("Well Done! Now rest.",25,0,05,1);                              'Trial rest duration
     seconds(0,1);
     WaitTime:=25;
     Waiting%();
@@ -1271,9 +1303,10 @@ ArrConst(RestTwitch[],curTwitch);
     '--------------
     TrialVA:= MVCtwitchPP/RestingTwitchPP*100;
     VA_Arr[TwitchTrial%]:=TrialVA;
-    seconds(0,1);
-    WaitTime:=85;
-    Waiting%();
+    'seconds(0,1);
+    'WaitTime:=85;
+    'Waiting%();
+    Newsflash("Rest",85,0,05,1);
     TwitchTrial%+=1;
     if TwitchTrial% < 9 then
       Newsflash("Prepare for next contraction",5,0,05,1);
@@ -1293,8 +1326,8 @@ ArrConst(RestTwitch[],curTwitch);
       else
         View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$);
       endif;
-      var i%;
-      for i% := 0 to 9 do
+      var j%;
+      for j% := 0 to 9 do
           View(fd%).print("%d\t%f\n", i%, VA_Arr[i%]);
           View(fd%).print("%d\t%f\n", i%, MEPTimeArr[i%]);
         next;
@@ -1314,7 +1347,7 @@ ArrConst(RestTwitch[],curTwitch);
     pVAButtonDisable%:= 3; ' When finished recording allow cVA button
     endif;
     return 1;'VA_Arr[];
-'endif;
+endif;
 end;
 '----------------------------------------------------------------------------------------------------------------------'
 '----------------------------------------------------------------------------------------------------------------------'
@@ -1326,9 +1359,81 @@ end;
 '----------------------------------------------------------------------------------------------------------------------
 ' Find resting motor threshold
 '----------------------------------------------------------------------------------------------------------------------
+func LocateMT%()
+Protocol$:="Locate MT";
+TMSSetISI%(1, 0);
+View(LogHandle());            'Make log view the current view
+EditSelectAll();            'Select all text in log view
+EditClear();              'Delete it
+Window(0,80,100,100);          'Display it at the bottom of the screen
+WindowVisible(1);            'Make it visbible
+
+if (MwaveThreshdata%>0) then                      ' If there is already a data view open...
+  View(MwaveThreshdata%);                       ' ...close it
+  FileClose(0, -1);                             ' No point setting data% to 0...
+endif;
+
+MwaveThreshdata%:=FileNew(0,0);                 ' Open a new data file for sampling
+if MwaveThreshdata%<0 then
+    SampleStop();
+  FileClose(-1,-1);
+  MwaveThreshdata%:=FileNew(0,0);
+    if MwaveThreshdata%<0 then
+        Message("Unable to open new data file");Halt;
+    endif;
+endif;
+View(MwaveThreshdata%).XRange(-1);
+View(MwaveThreshdata%).WindowVisible(1);
+View(MwaveThreshdata%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
+View(MwaveThreshdata%).Window(0,0,60,100);            'Make data window right half of screen
+cScale := ChanScale(curChan%);
+cOffset := ChanOffset(curChan%);
+'View(MwaveThreshdata%).FiltCalc(3, BinSize(1), highPassFilter[]); 'set the filter
+'View(MwaveThreshdata%).ChanProcessAdd(1, 1, 0.01); 'Channel, 1=Smooth, Time constant (s)
+'View(MwaveThreshdata%).ChanProcessAdd(1, 9, 0.01); 'Channel, 9=Median filter, Time constant (s)
+ChanHide(31);
+ViewTrigger(TrigEventChan%, .1, .9, 1,1);
+
+resultViewH%:=SetResult(5000, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "EMG-apb");
+View(resultViewH%).DrawMode(1, 3);
+View(resultViewH%).YRange(1, -0.250, 0.250);
+View(resultViewH%).WindowVisible(1);
+View(resultViewH%).CursorNew(XToBin(0));
+View(resultViewH%).Window(0,0,60,80); 'Make EMG results graph window sit between log view and sampling data
+Colour(12,6);
+return 0;
+end
+proc updateLocation()
+    View(MwaveThreshdata%).ChanData(1, View(resultViewH%,1).[], currentTrigTime-.1, currentTrigTime+.9);
+end;
+'func MwavePeakToPeak(startTime, endTime)
+'  var minVal, maxVal, i%;
+'    View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
+'    printlog("current peak to peak:", maxVal - minVal);
+'    mWavePPArr[stimcount%]:= maxVal - minVal;
+'    if(stimcount% > 2) then
+'    ArrConst(View(MwaveBarGraph%).[:3],mWavePPArr[stimcount%-2:stimcount%]);                      'Set bar graph to new peak to peak value
+'    DrawAll();  'update result views
+'    endif
+'  return maxVal - minVal;
+'end;
+func DoMTAnalyze%();
+    var curPeakToPeak;
+    view(resultViewH%); 'make sure we are looking at the results view, otherwise we get peak-to-peak of the same sampled data every time
+    'yield(1); 'shouldn't need this because it is built into idle func
+    curPeakToPeak:=MwavePeakToPeak(.03,.3);
+if (stimcount% > 1) then
+    PPdiff[stimcount%-2]:= curPeakToPeak - prevPeakToPeak;
+    AnalyzeMwave(curPeakToPeak);
+    return 0;
+endif
+end;
+'----------------------------------------------------------------------------------------------------------------------
+' Find resting motor threshold
+'----------------------------------------------------------------------------------------------------------------------
 func GetrMT%()
 Protocol$:="rMT";
-    getBestPestParams();
+  getBestPestParams();
   doBestPest%:=1;
   rMT%:=0;
   TMSSetISI%(1, 0);
@@ -1435,6 +1540,9 @@ case    WhichOne% = 1 then
     cVAprotocol$:="Cutaneous Reflex";
 else
     cVAprotocol$:="Paired Pulse";
+    if ISI = 30 then
+        SubProtocol$ := "30ms PP";
+    endif;
 endcase;
 docase
 case    ReflexInt% = 1 then
@@ -1868,31 +1976,66 @@ end;
 ' Get bicep/tricep MEP ratios
 '----------------------------------------------------------------------------------------------------------------------
 func getMEP%()
-var i%,BicepPreMEP[6],TricepPreMEP[6],MEPIndex%[6],MEPTime[6],TrialVA,BicepMEP[6],TricepMEP[6];
+var i%,BicepPreMEP,TricepPreMEP,MEPIndex%,MEPTime,TrialVA,BicepMEP,TricepMEP;
 var curMEP[300];
-Newsflash("Well Done! Now rest.",5,0,05,1);
-seconds(0,1);
-WaitTime:=75;
-Waiting%();
+Newsflash("Well Done! Now rest.",75,0,05,1);
+
+'seconds(0);
+'WaitTime:=75;
+'DlgAllow(1023,Waiting%);
+'Waiting%();
 Newsflash("Arm Magstim now and prepare for next contraction",10,0,05,1);
 'if updateMEP% = 1 then
-    BicepPreMEP:=ChanMeasure(1,11,LastStimTime - .15,LastStimTime - .05);
-    TricepPreMEP:=ChanMeasure(2,11,LastStimTime - .15,LastStimTime - .05);
+    BicepPreMEP:=view(cVAdata%).ChanMeasure(1,11,LastStimTime - .15,LastStimTime - .05);
+    TricepPreMEP:=(view(cVAdata%).ChanMeasure(2,11,LastStimTime - .15,LastStimTime - .05)+1);
     PreMEParray[TrialCount%]:=BicepPreMEP/TricepPreMEP;
     view(pVAdata%).ChanData(2, curMEP, LastStimTime + .05, LastStimTime + .35); 'Fill array with 300ms of data around twitch
     MEPIndex%:=Max(curMEP[]); 'find index of twitch max
     MEPTime:= (LastStimTime + .05 + (MEPIndex%/1000)); 'convert index of twitch max to time in ms
     BicepMEP:=ChanMeasure(1,11,MEPTime-.025,MEPTime+.025);' RMS Amplitude over 50ms of Bicep EMG at MEP max amp
-    TricepMEP:=ChanMeasure(2,11,MEPTime-.025,MEPTime+.025);' RMS Amplitude over 50ms of Bicep EMG at MEP max amp
+    TricepMEP:=(ChanMeasure(2,11,MEPTime-.025,MEPTime+.025)+1);' RMS Amplitude over 50ms of Bicep EMG at MEP max amp
     NormalizedMEP:=BicepMEP/TricepMEP;
     NormedMEPArr[TrialCount%]:=NormalizedMEP;
     MEPTimeArr[TrialCount%]:=MEPTime;
     paftn:=view(cVAdata%).MaxTime();
+    Randomize%();
     waitforTMS%+=1;
     return 1
 'endif;
 end;
-'
+func Randomize%()
+rNum%:= round(rand()*3)+1;
+docase
+  case rNum% = 1 then
+    if numZero% < 6 then
+      UpperEMGLimit:=(avgBicepMVC*0);
+      LowerEMGLimit:=(avgBicepMVC*0.05);
+      numZero%+=1;
+    else Randomize%();
+    endif;
+  case rNum% = 2 then
+    if numFifty% < 6 then
+      UpperEMGLimit:=(avgBicepMVC*0.45);
+      LowerEMGLimit:=(avgBicepMVC*0.55);
+      numFifty%+=1;
+    else Randomize%();
+    endif;
+  case rNum% = 3 then
+    if numSeventy% < 6 then
+      UpperEMGLimit:=(avgBicepMVC*0.70);
+      LowerEMGLimit:=(avgBicepMVC*0.80);
+      numSeventy%+=1;
+    else Randomize%();
+    endif;
+  case rNum% = 4 then
+    if numOneHundred% < 6 then
+      UpperEMGLimit:=(avgBicepMVC*0.95);
+      LowerEMGLimit:=(avgBicepMVC*1.05);
+      numOneHundred%+=1;
+    else Randomize%();
+    endif;
+endcase;
+end;
 func Back%()                  ' Go back to previouse toolbar (or exits script if on outermost toolbar)
 return 0                    ' Just leaves the current one
 end;
@@ -2710,17 +2853,16 @@ func Finish%()
     	if (fd% < 0) then
     		printlog("Could not open text file to save data, printing to log window.\n");
     	endif;
-    	if (fd% < 0) then
-    		printlog("%sSTIM\t%sVAL\n", fName$, fName$);
-    	else
-    		View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$); 'Do I need this?'
-    	endif;
+    	'if (fd% < 0) then
+    	'	printlog("%sSTIM\t%sVAL\n", fName$, fName$);
+    	'else
+    	'	View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$); 'Do I need this?'
+    	'endif;
     	var i%;
     	for i% := 0 to 5 do
     			View(fd%).print("%d\t%f\n", i%, NormedMEPArr[i%]);
           View(fd%).print("%d\t%f\n", i%, MEPTimeArr[i%]);
     		next;
-    	next;
     	var ret%;
     	if (fd% >= 0) then
 
@@ -2875,8 +3017,11 @@ func Finish%()
               View(cVAdata%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_100p"), -1);
               ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_cVA_PP30_100p.txt"), 1, 0, "Save analysis as...");
           endcase;
-      endcase;
-      docase
+                endcase;
+            endcase
+        endcase
+    endcase
+endif
     		if (ret% < 0) then
     			View(fd%);
     			FileClose(0, -1);
@@ -2887,5 +3032,5 @@ func Finish%()
     View(cVAdata%);
     FileClose(0,-1);
     cVAdata%:=-1;
-    waitforTMS%:= 0;
+                waitforTMS%:= 0;
 end;
