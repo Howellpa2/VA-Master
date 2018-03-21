@@ -559,61 +559,60 @@ if (cVAdata%>=0) then
 '-------------------------------------------------------
 ' Trigger Magstim if forces are in desired range
 '-------------------------------------------------------
-         'if (View(cVAdata%).Maxtime() - paftn >= 10) then
             if  (EMGlvl <= UpperEMGLimit and EMGlvl >= LowerEMGLimit) then  'If force is in target range then....
-            docase
-
-            case cVAprotocol$ = "Arm Posture" then
-                TMSSetRemoteControl%(1);
-                armTMS%();
-                TMSTriggerTMS%(1);                                      'Send pulse to magstim
-                LastStimTime:=view(cVAdata%).MaxTime();
-                SampleKey(s$);
-                getMEP%();
-                'updateMEP%:=0;
-            case cVAprotocol$ = "Paired Pulse" then
-                'armTMS%();
-                    TMSTriggerTMS%(1);                                      'Send pulse to magstim
-                    LastStimTime:=view(cVAdata%).MaxTime();
-                    SampleKey(s$);
-                    getMEP%();
-            case PCSprotocol$ = "40ms Cutaneous Reflex" then
-                'armTMS%();
-                DigiStimTime:=view(cVAdata%).MaxTime();
-                SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
-                'if curTime > DigiStimTime + .035 then
-                    TMSTriggerTMS%(1);
-                    actualTriggerTime:=view(cVAdata%).MaxTime();
-                    SampleKey(s$);
-                    getMEP%();
-                'endif;
-            case PCSprotocol$ = "70ms Cutaneous Reflex" then
-                'armTMS%();
-                DigiStimTime:=view(cVAdata%).MaxTime();
-                SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
-                if curTime > DigiStimTime + .065 then
-                        TMSTriggerTMS%(1);
-                        SampleKey(s$);
-                        getMEP%();
-                endif;                                    'Send pulse to digitimer then magstim 70ms later
-            case PCSprotocol$ = "100ms Cutaneous Reflex" then
-                'armTMS%();
-                DigiStimTime:=view(cVAdata%).MaxTime();
-                'SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
-                'if curTime > DigiStimTime + .095 then
-                        TMSTriggerTMS%(1);
-                    SampleKey(s$);
-                    SampleKey(t$);
-                        getMEP%();
-                'endif;                                 'Send pulse to digitimer then magstim 100ms later
-            endcase;
-            LastStimTime:=View(cVAdata%).Maxtime();                     'Reset when the last pulse was sent
-            updateMEP%:=1;                                              'Get twitch data
+                yield(0);
+                counter%+=1;
+                if counter% = 5 then
+                  docase
+                    case cVAprotocol$ = "Arm Posture" then
+                      TMSSetRemoteControl%(1);
+                      armTMS%();
+                      TMSTriggerTMS%(1);                                      'Send pulse to magstim
+                      LastStimTime:=view(cVAdata%).MaxTime();
+                      SampleKey(s$);
+                      getMEP%();
+                    case cVAprotocol$ = "Paired Pulse" then
+                      TMSTriggerTMS%(1);                                      'Send pulse to magstim
+                      LastStimTime:=view(cVAdata%).MaxTime();
+                      SampleKey(s$);
+                      getMEP%();
+                    case PCSprotocol$ = "40ms Cutaneous Reflex" then
+                      DigiStimTime:=view(cVAdata%).MaxTime();
+                      SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
+                      'if curTime > DigiStimTime + .035 then
+                          TMSTriggerTMS%(1);
+                          actualTriggerTime:=view(cVAdata%).MaxTime();
+                          SampleKey(s$);
+                          getMEP%();
+                      'endif;
+                    case PCSprotocol$ = "70ms Cutaneous Reflex" then
+                      'armTMS%();
+                      DigiStimTime:=view(cVAdata%).MaxTime();
+                      SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
+                      if curTime > DigiStimTime + .065 then
+                              TMSTriggerTMS%(1);
+                              SampleKey(s$);
+                              getMEP%();
+                      endif;                                    'Send pulse to digitimer then magstim 70ms later
+                    case PCSprotocol$ = "100ms Cutaneous Reflex" then
+                      'armTMS%();
+                      DigiStimTime:=view(cVAdata%).MaxTime();
+                      'SampleKey(t$);                                          'Send pulse to digitimer then magstim 40ms later
+                      'if curTime > DigiStimTime + .095 then
+                              TMSTriggerTMS%(1);
+                          SampleKey(s$);
+                          SampleKey(t$);
+                              getMEP%();
+                      'endif;                                 'Send pulse to digitimer then magstim 100ms later
+                  endcase;
+                LastStimTime:=View(cVAdata%).Maxtime();                     'Reset when the last pulse was sent
+                else
+                counter%:=0;
                 endif;
-           ' endif;
+            endif;
     endif;
     endif;
-    if waitforTMS% = 7 then
+    if waitforTMS% = 25 then
        Finish%()
     endif;
 endif;
