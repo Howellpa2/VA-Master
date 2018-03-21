@@ -877,7 +877,7 @@ ToolbarSet(6,"100%", cVAtestOnehundred%);
 ToolbarSet(5,"75%", cVAtestSeventy%);
 ToolbarSet(4,"50%", cVAtestFifty%);
 ToolbarSet(3,"At Rest", cVAtestZero%);
-'ToolbarSet(2,"Halt Rec/Set", HaltRec%);
+ToolbarSet(2,"All", cVAtestAll%);
 ToolbarSet(1,"Quit", Back%);
 toolText$:="Arm Posture cVA Protocols";        ' Sets the text to appear on the left in the toolbar
 ToolbarText(toolText$);                         ' Puts the toolText into the toolbar (in case we are returning to this toolbar)
@@ -895,7 +895,7 @@ ToolbarSet(6,"100%", cVAtestOnehundred%);
 ToolbarSet(5,"75%", cVAtestSeventy%);
 ToolbarSet(4,"50%", cVAtestFifty%);
 ToolbarSet(3,"At Rest", cVAtestZero%);
-'ToolbarSet(2,"Halt Rec/Set", HaltRec%);
+ToolbarSet(2,"All", cVAtestAll%);
 ToolbarSet(1,"Quit", Back%);
 toolText$:="Paired Pulse cVA Protocols";        ' Sets the text to appear on the left in the toolbar
 ToolbarText(toolText$);                         ' Puts the toolText into the toolbar (in case we are returning to this toolbar)
@@ -913,7 +913,7 @@ ToolbarSet(6,"100%", cVAtestOnehundred%);
 ToolbarSet(5,"75%", cVAtestSeventy%);
 ToolbarSet(4,"50%", cVAtestFifty%);
 ToolbarSet(3,"At Rest", cVAtestZero%);
-'ToolbarSet(2,"Halt Rec/Set", HaltRec%);
+ToolbarSet(2,"All", cVAtestAll%);
 ToolbarSet(1,"Quit", Back%);
 toolText$:="Cutaneous Stim cVA Protocols";        ' Sets the text to appear on the left in the toolbar
 ToolbarText(toolText$);                         ' Puts the toolText into the toolbar (in case we are returning to this toolbar)
@@ -1970,6 +1970,53 @@ endif;
 ''    cVAdata%:=-1;
 ''    waitforTMS% := 0;
 ''    endif;
+return 1;
+end;
+'-------------------------------------------------------------------------------------------
+'
+'---------------------------------------------------------------------------------------------
+func cVAtestAll%()
+Protocol$:="cVA";
+SubProtocol$:="cVAtestAll";
+cVAdata%:=FileNew(0,0);                 ' Open a new data file for sampling
+if cVAdata%<0 then
+    SampleStop();
+  FileClose(-1,-1);
+  cVAdata%:=FileNew(0,0);
+    if cVAdata%<0 then
+        Message("Unable to open new data file");Halt;
+    endif;
+endif;
+SampleStart();
+'-------------------------------------------------------
+' Calculate Cursor locations based on MVC data and %MVC
+'-------------------------------------------------------
+Randomize%();
+HCursorDelete(-1);              'Clear any existing cursors
+'-------------------------------------------------
+View(cVAdata%).XRange(-1);
+View(cVAdata%).WindowVisible(1);
+View(cVAdata%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
+View(cVAdata%).Window(0,0,60,100);            'Make data window right half of screen
+ChanHide(31);
+'-------------------------------------------------
+'Force Feedback Bar Graph
+'-------------------------------------------------
+View(cVAdata%);
+ForceFeedbackBarGraph%:=SetResult(1,1,0,"Target Force Level","");
+FrontView(ForceFeedbackBarGraph%);
+View(ForceFeedbackBarGraph%).XRange(0,1);
+View(ForceFeedbackBarGraph%).YRange(1,0,2*LowerEMGLimit);      'Set Y range to match source waveform channel
+View(ForceFeedbackBarGraph%).YAxisMode(11);      'Hide all Y axis information
+View(ForceFeedbackBarGraph%).Window(60,0,100,100); 'Make bar graph window right 40% of screen
+Colour(12,6);
+HCursorNew(1,UpperEMGLimit);
+HCursorNew(1,LowerEMGLimit);
+FrontView(LogHandle());              'Bring the Log view to the front
+FrontView(ForceFeedbackBarGraph%);          'Bring the bar graph results view to the front
+FrontView(cVAdata%);
+
+
 return 1;
 end;
 '----------------------------------------------------------------------------------------------------------------------
