@@ -27,6 +27,10 @@ var MwaveBarGraph%:=-1;
 var ForceFeedbackBarGraph%:=-1;
 var level;
 var s$:="something";
+var z$:="zero";
+var x$:="xFifty";
+var c$:="cSeventyFive";
+var v$:="vOneHundred";
 var lTime;
 var FeedbackTime;
 var pVAButtonDisable% := 0;
@@ -144,7 +148,7 @@ var TrialBicepMVC[3][1];
 var MVCout;
 var MVCin[6];
 var avgMVCout;
-var avgBicepMVC:=204.53;
+var avgBicepMVC:=1076.63;
 var avgMVCin[6];
 const FxChan%:= 3; 'Fx channel set
 const FyChan%:= 4; 'Fy channel set
@@ -499,7 +503,7 @@ if ((Protocol$ = "REC_pVA")) then
         if  (EMGlvl < UpperEMGLimit and EMGlvl > LowerEMGLimit) then
             yield(0);
             counter%+=1;
-            if counter% = 10 then
+            if counter% = 8 then
                 'and  FyLVL <= UpperFyLimit and FyLVL >= LowerFyLimit
                 'and  FzLVL <= UpperFzLimit and FzLVL >= LowerFzLimit) then  'If force is in target range then....
                 SampleKey(t$);                                              'Send pulse to digitimer
@@ -562,7 +566,7 @@ if (cVAdata%>=0) then
             if  (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
                 yield(0);
                 counter%+=1;
-                if counter% >= 10 then
+                if counter% >= 6 then
                   docase
                     case cVAprotocol$ = "Arm Posture" then
                       'TMSSetRemoteControl%(1);
@@ -2103,8 +2107,8 @@ docase
     endif;
   case rNum% = 3 then
     if numSeventy% < 6 then
-      UpperEMGLimit:=(avgBicepMVC*0.80);
-        LowerEMGLimit:=(avgBicepMVC*0.70);
+      UpperEMGLimit:=(avgBicepMVC*0.83);
+        LowerEMGLimit:=(avgBicepMVC*0.67);
         View(ForceFeedbackBarGraph%).HCursorDelete(-1);
         View(ForceFeedbackBarGraph%).YRange(1,0,2*UpperEMGLimit);
         View(ForceFeedbackBarGraph%).HCursorNew(1,UpperEMGLimit);
@@ -2114,8 +2118,8 @@ docase
     endif;
   case rNum% = 4 then
     if numOneHundred% < 6 then
-      UpperEMGLimit:=(avgBicepMVC*1.075);
-        LowerEMGLimit:=(avgBicepMVC*0.975);
+      UpperEMGLimit:=(avgBicepMVC*1.15);
+        LowerEMGLimit:=(avgBicepMVC*0.95);
         View(ForceFeedbackBarGraph%).HCursorDelete(-1);
         View(ForceFeedbackBarGraph%).YRange(1,0,2*UpperEMGLimit);
         View(ForceFeedbackBarGraph%).HCursorNew(1,UpperEMGLimit);
@@ -2129,15 +2133,13 @@ func Marking%()
 'Function for tracking the percent MVC that each randomized trial occurs at'
 docase
   case rNum% = 1 then
-    Mark 1;
+    SampleKey(z$); 
   case rNum% = 2 then
-    Mark 50;
+    SampleKey(x$); 
   case rNum% = 3 then
-    Mark 75;
+    SampleKey(c$); 
   case rNum% = 4 then
-    Mark 100;
-  else
-    Mark 0;
+    SampleKey(v$); 
 endcase;
 end;
 func Back%()                  ' Go back to previouse toolbar (or exits script if on outermost toolbar)

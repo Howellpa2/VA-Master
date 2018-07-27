@@ -3,6 +3,7 @@
 ' Global Variables
 '----------------------------------------------------------------------------------------------------------------------
 var Protocol$:="Stopped";
+var TMSstatus$:= "Not Armed";
 var ready$:="Yes";
 var resultViewH%;
 var curChan% :=1;
@@ -21,7 +22,7 @@ var EMGlvl;
 var ForceFeedbackLevel;
 var Trial%:=0;
 var sTime := 0;
-var eTime,rTime;
+var eTime,rTime,waitforTMStoArm,waitTime;
 var curTime;
 var TMSlastCommandTime,ReadyTime;
 var MVCstartTime[6];
@@ -36,7 +37,7 @@ var PPdiff[50];
 var AvgBicep[5500];
 var BicepRMS[5500];
 var TrialBicepMVC[6][1];
-var avgBicepMVC:=636.5;
+var avgBicepMVC:=271.2;
 var UpperEMGLimit,LowerEMGLimit;
 var rNum%:=2;
 var TMSintensityA;
@@ -179,7 +180,7 @@ endif;
 cScale := ChanScale(curChan%);
 cOffset := ChanOffset(curChan%);
 View(MwaveThreshdata%).XRange(-1);
-View(MwaveThreshdata%).YRange(1,((-14*cScale)+ cOffset),(14*cScale)+cOffset);
+View(MwaveThreshdata%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
 View(MwaveThreshdata%).WindowVisible(1);
 View(MwaveThreshdata%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(MwaveThreshdata%).Window(0,0,60,80);            'Make data window right half of screen
@@ -187,12 +188,12 @@ View(MwaveThreshdata%).Window(0,0,60,80);            'Make data window right hal
 'View(MwaveThreshdata%).FiltCalc(3, BinSize(1), highPassFilter[]); 'set the filter
 View(MwaveThreshdata%).ChanProcessAdd(1, 1, 0.01); 'Channel, 1=Smooth, Time constant (s)
 View(MwaveThreshdata%).ChanProcessAdd(1, 9, 0.01); 'Channel, 9=Median filter, Time constant (s)
-ChanHide(31);
+ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(8);ChanHide(9);
 
-ViewTrigger(TrigEventChan%, .05, .25, 1,1); 'reset the view after each trigger'
+ViewTrigger(TrigEventChan%, .05, .25, 1,-1); 'reset the view after each trigger'
 resultViewH%:=SetResult(600, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "Bicep EMG");
 View(resultViewH%).DrawMode(1, 3);
-View(resultViewH%).YRange(1,((-14*cScale)+cOffset),(14*cScale)+cOffset);
+View(resultViewH%).YRange(1,((-1*cScale)+cOffset),(1*cScale)+cOffset);
 View(resultViewH%).WindowVisible(1);
 View(resultViewH%).CursorNew(XToBin(0));
 View(resultViewH%).Window(0,0,60,80); 'Make EMG results graph window sit between log view and sampling data
@@ -202,7 +203,7 @@ Colour(12,6);
 View(MwaveThreshdata%); ' View sampling data
 MwaveBarGraph%:=SetResult(3,1,0,"M-wave Level","");
 View(MwaveBarGraph%).XRange(0,3);
-View(MwaveBarGraph%).YRange(1,((0*cScale)+cOffset),(14*cScale)+cOffset);      'Set Y range to match source waveform channel
+View(MwaveBarGraph%).YRange(1,((0*cScale)+cOffset),(2*cScale)+cOffset);      'Set Y range to match source waveform channel
 View(MwaveBarGraph%).Window(60,0,100,80); 'Make bar graph window right portion of screen
 FrontView(MwaveBarGraph%);
 Colour(12,6);
@@ -339,12 +340,12 @@ endif;
 cScale := ChanScale(curChan%);
 cOffset := ChanOffset(curChan%);
 View(mMaxData%).XRange(-1);
-View(mMaxData%).YRange(1,((-14*cScale)+ cOffset),(14*cScale)+cOffset);
+View(mMaxData%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
 View(mMaxData%).WindowVisible(1);
 View(mMaxData%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(mMaxData%).Window(0,0,60,80);            'Make data window right half of screen
 
-ChanHide(31);
+ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(8);ChanHide(9);
 
 FrontView(mMaxData%);          'Bring the data view to the front
 
@@ -386,11 +387,11 @@ endif;
 cScale := ChanScale(curChan%);
 cOffset := ChanOffset(curChan%);
 View(MVCData%).XRange(-1);
-View(MVCData%).YRange(1,((-14*cScale)+ cOffset),(14*cScale)+cOffset);
+View(MVCData%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
 View(MVCData%).WindowVisible(1);
 View(MVCData%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(MVCData%).Window(0,0,60,80);            'Make data window right half of screen
-ChanHide(31);
+ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(8);ChanHide(9);
 '-------------------------------------------------
 'Force Feedback Bar Graph
 '-------------------------------------------------
@@ -502,7 +503,7 @@ ChanHide(31);
 ViewTrigger(7, .05, .25, 1,1); 'reset the view after each trigger'
 resultViewH%:=SetResult(600, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "Bicep EMG");
 View(resultViewH%).DrawMode(1, 3);
-View(resultViewH%).YRange(1,((-14*cScale)+cOffset),(14*cScale)+cOffset);
+View(resultViewH%).YRange(1,((-1*cScale)+cOffset),(1*cScale)+cOffset);
 View(resultViewH%).WindowVisible(1);
 View(resultViewH%).CursorNew(XToBin(0));
 View(resultViewH%).Window(0,0,60,80); 'Make EMG results graph window sit between log view and sampling data
@@ -565,11 +566,11 @@ endif;
 cScale := ChanScale(curChan%);
 cOffset := ChanOffset(curChan%);
 View(CRRData%).XRange(-1);
-View(CRRData%).YRange(1,((-14*cScale)+ cOffset),(14*cScale)+cOffset);
+View(CRRData%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
 View(CRRData%).WindowVisible(1);
 View(CRRData%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(CRRData%).Window(0,0,60,80);            'Make data window right half of screen
-ChanHide(31);
+ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(8);ChanHide(9);
 '-------------------------------------------------
 'Force Feedback Bar Graph
 '-------------------------------------------------
@@ -595,7 +596,12 @@ LowerEMGLimit:=(avgBicepMVC*0.45);
   ok% := DlgShow(TMSintensityA);
 SampleStart(); 'begin sampling
 ButtonDisable% := 1;
+RandomTime%();
 randomize%();
+EffortAdjust%();
+ready$:="First Time";
+ReadyTime:=view(CRRdata%).Maxtime();
+'SetParameters%();
 return 1;                    ' and stay in current toolbar
 end;
 func Randomize%()
@@ -763,7 +769,7 @@ docase
     TMSTriggerTMS%(1);
     PreviousStim$:="TMS Only";
   case DigitimerPulse$ ="Single" then
-    PreviousStim$:="Painful";
+    PreviousStim$:="Digitimer Only";
     if TMSpulse$ ="No" then
       SampleKey(d$);
     else
@@ -780,40 +786,83 @@ docase
       TMSTriggerTMS%(1);
       SampleKey(a$);
     endif;
-endcase
+endcase;
+docase
+  case rNum% = 1 then
+    SampleText("1", -1);
+  case rNum% = 2 then
+    SampleText("2", -1);
+  case rNum% = 3 then
+    SampleText("3", -1);
+  case rNum% = 4 then
+    SampleText("4", -1);
+  case rNum% = 5 then
+    SampleText("5", -1);
+  case rNum% = 6 then
+    SampleText("6", -1);
+  case rNum% = 7 then
+    SampleText("7", -1);
+  case rNum% = 8 then
+    SampleText("8", -1);
+  case rNum% = 9 then
+    SampleText("9", -1);
+  case rNum% = 10 then
+    SampleText("10", -1);
+  case rNum% = 11 then
+    SampleText("11", -1);
+  case rNum% = 12 then
+    SampleText("12", -1);
+  case rNum% = 13 then
+    SampleText("13", -1);
+  case rNum% = 14 then
+    SampleText("14", -1);
+  case rNum% = 15 then
+    SampleText("15", -1);
+  case rNum% = 16 then
+    SampleText("16", -1);
+  endcase;
 Trial%+=1;
 RandomTime%();
 randomize%();
 EffortAdjust%();
+'SetParameters%();
+Newsflash("Well that was stimulating!",(5),0,05,1);  'Trial rest duration
+Newsflash("Arm TMS",(5),0,05,1);
 SetParameters%();
-Newsflash("Well that was stimulating!",(rTime-4),0,05,1);  'Trial rest duration
-ready$:="Yes";
-armTMS%();
-Newsflash("Well that was stimulating!",4,0,05,0);  'Trial rest duration
-
- 
+Newsflash("Arm TMS",(rTime-10),0,05,0);
+'waitTime:=View(CRRdata%).MaxTime();
+'yield(3);
+'SetParameters%();
+'yield(1);
+'ready$:="Yes";
+'armTMS%();
 return 1;                    ' and stay in current toolbar
 end;
 
 func SetParameters%()
-
-TMSSetRemoteControl%(1);
-
+'armTMS%();
+'TMSSetRemoteControl%(1);
+'yield(4);
+if ready$ = "No" then
 if DigitimerPulse$ ="Train" then
   setTMSIntensity%(0, 1);
     setTMSIntensity%(TMSintensityA, 2);
-    yield(0);
+    'yield(0);
   docase
     case TMSpulse$ ="+100ms" then
+        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);        
         TMSSetIsi%(1, 130);
         SampleKey(p$);
     case TMSpulse$ ="+70ms" then
+        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);        
         TMSSetIsi%(1, 100);
         SampleKey(o$);
     case TMSpulse$ ="+40ms" then
+        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
         TMSSetIsi%(1, 70);
         SampleKey(i$);
     case TMSpulse$ ="+0ms" then
+        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
         TMSSetIsi%(1, 30);
         SampleKey(u$);
     endcase;
@@ -821,16 +870,20 @@ endif;
 if DigitimerPulse$ ="Single" then
   setTMSIntensity%(TMSintensityA, 1);
   setTMSIntensity%(0, 2);
+  TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
   TMSSetIsi%(1, 0);
-endif;
+    endif;
+    endif;
+ready$:="Yes";
 return 1;                    ' and stay in current toolbar
 end;
 func RandomTime%()
 if PreviousStim$ ="Painful" then
   rTime:= round(rand()*120)+60;
-endif;
-if PreviousStim$ = "TMS Only" then
-  rTime:= round(rand()*30)+15;
+'endif;
+'if PreviousStim$ = "TMS Only" then
+else
+    rTime:= round(rand()*30)+15;
 endif;
 return 1;                    ' and stay in current toolbar
 end;
@@ -897,7 +950,7 @@ if ((Protocol$ = "find m-wave")) then
       FrontView(MwaveThreshData%);
       curTime := View(MwaveThreshdata%).Maxtime();
 
-      if (updateNecessary% and (View(MwaveThreshdata%).Maxtime()-currentTrigTime >= .9)) then
+      if (updateNecessary% and (View(MwaveThreshdata%).Maxtime()-currentTrigTime >= .25)) then
         printlog("Updating view\n");
         updateData();
         DoMwaveAnalyze%();
@@ -991,11 +1044,12 @@ if ((Protocol$ = "CRR")) then
       TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
       'armTMS%();
         endif;
-     if (View(CRRdata%).Maxtime() - ReadyTime > 10) then
-    ReadyTime:=view(CRRdata%).MaxTime();
-    'TMSSetRemoteControl% (TMSMAGSTIM200SPORT%);
-armTMS%();
-endif;   
+        if ready$ = "First Time" then
+            if view(CRRdata%).Maxtime() - ReadyTime > 2 then
+                SetParameters%();
+            endif;
+        endif;
+        
     curTime := view(CRRdata%).Maxtime();
     ForceFeedbackLevel:=view(CRRdata%).ChanMeasure(BicepEMGchan%,11,curTime-.5,curTime); 'or as RMS amp over the last 200ms
     ArrConst(View(ForceFeedbackBarGraph%).[:1],ForceFeedbackLevel);
@@ -1020,20 +1074,76 @@ endif;
 '-------------------------------------------------------
 ' Trigger Magstim if forces are in desired range
 '-------------------------------------------------------
-        if ready$ = "Yes" then
-            
-      if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
-        yield(0);
-        counter%+=1;
-        if counter% >= 6 then
-          ready$:="No";
-          Stimulus%()
-        endif
-      else
-        counter%:=0;
+'        if (View(CRRdata%).Maxtime() - (waitTime + rTime) > 1) then
+'            SetParameters%();
+'        endif;
+'        if (View(CRRdata%).Maxtime() - (waitTime + rTime) > 5) then
+'        if ready$ = "No" then 
+'            yield(0);
+'                  counter%+=1;
+'                  if counter% >= 6 then
+'                     'waitforTMStoArm:=View(CRRdata%).Maxtime();     
+'                    SetParameters%();
+'                  endif;
+'                endif;
+'         docase
+'          case TMSstatus$ = "Not Armed" then
+'            'TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+'            armTMS%();
+'            TMSstatus$:= "Arming";
+'          case TMSstatus$ = "Arming" then
+'            waitforTMStoArm:= view(CRRdata%).Maxtime();
+'            TMSstatus$:= "Armed";
+'            case TMSstatus$ = "Armed" then
+'                if (View(CRRdata%).Maxtime() - waitforTMStoArm > 2) then
+'                    SetParameters%();
+'                    endif;
+'         endcase;
+'        endif;
+    if ready$ = "Yes" then
+      if MVClevel$ = "At Rest" then
+        docase
+          case TMSstatus$ = "Not Armed" then
+            'TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+            armTMS%();
+            TMSstatus$:= "Arming";
+          case TMSstatus$ = "Arming" then
+            waitforTMStoArm:= view(CRRdata%).Maxtime();
+            TMSstatus$:= "Armed";
+          case TMSstatus$ = "Armed" then
+            if (View(CRRdata%).Maxtime() - waitforTMStoArm > 2) then
+                if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
+                  yield(0);
+                  counter%+=1;
+                  if counter% >= 6 then
+                                ready$:="No";
+                                TMSstatus$:="Not Armed";
+                    Stimulus%()
+                  endif
+                else
+                  counter%:=0;
+                endif;
+            endif;
+          endcase;
+      endif;
+      if MVClevel$ = "Fifty Percent" then
+        if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
+          yield(0);
+          counter%+=1;
+          if counter% >= 6 then
+            ready$:="No";
+            Stimulus%()
+          endif
+        else
+          counter%:=0;
+                    endif;
+                    endif;
       endif;
     endif;
   endif;
+'endif;
+if ((Protocol$ = "Stopped")) then
+return 1;'Stay in toolbar
 endif;
 return 1;'Stay in toolbar
 end;
