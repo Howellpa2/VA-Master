@@ -211,9 +211,10 @@ proc CRRToolbarButtons()               ' Buttons for Toolbar (they're self expla
 ToolbarClear();
 ToolbarSet(0,"",Idle%);                  'Call Idle%() whenever there is free time
 ToolbarSet(1,"Quit", Back%);
-ToolbarSet(8,"Find M-max", FindMwave%);
-ToolbarSet(7,"Record M-max", RecMwave%);
-ToolbarSet(6,"Find MVC", MVC%);
+ToolbarSet(9,"Find M-max", FindMwave%);
+ToolbarSet(8,"Record M-max", RecMwave%);
+ToolbarSet(7,"Find MVC", MVC%);
+ToolbarSet(6,"pVA", pVA%);
 ToolbarSet(5,"TMS Locator", TMSToolbar%);
 'ToolbarSet(3,"Record rMT", LocateMT%);
 ToolbarSet(4, "&RC", doRC%);
@@ -261,12 +262,13 @@ ToolbarSet(0,"",Idle%);                  ' Call Idle%() whenever there is free t
 ToolbarSet(1,"Back", Back%);
 ToolbarSet(4,"Start", LocateMT%);
 ToolbarSet(3,"Fire TMS", Fire%);
-ToolbarSet(2,"Halt Rec", HaltRec%);
+ToolbarSet(-2,"Halt Rec", HaltRec%);
 toolText$:="Locate Motor Threshold";              ' Sets the text to appear on the left in the toolbar
 ToolbarText(toolText$);                         ' Puts the toolText into the toolbar (in case we are returning to this toolbar)
 
 end;
 func Fire%()
+SampleKey(a$);
 TMSTriggerTMS%(1);
 end;
 '----------------------------------------------------------------------------------------------------------------------
@@ -314,9 +316,9 @@ View(MwaveThreshdata%).DrawMode(-1,3);              'Set event draw mode to line
 View(MwaveThreshdata%).Window(0,0,60,80);            'Make data window right half of screen
 
 'View(MwaveThreshdata%).FiltCalc(3, BinSize(1), highPassFilter[]); 'set the filter
-View(MwaveThreshdata%).ChanProcessAdd(1, 1, 0.01); 'Channel, 1=Smooth, Time constant (s)
-View(MwaveThreshdata%).ChanProcessAdd(1, 9, 0.01); 'Channel, 9=Median filter, Time constant (s)
-ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(8);ChanHide(9);
+'View(MwaveThreshdata%).ChanProcessAdd(1, 1, 0.01); 'Channel, 1=Smooth, Time constant (s)
+'View(MwaveThreshdata%).ChanProcessAdd(1, 9, 0.01); 'Channel, 9=Median filter, Time constant (s)
+ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(9);
 
 ViewTrigger(TrigEventChan%, .05, .25, 1,-1); 'reset the view after each trigger'
 resultViewH%:=SetResult(600, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "Bicep EMG");
@@ -411,10 +413,10 @@ end;
 func DoMwaveAnalyze%();
     var curPeakToPeak;
     view(resultViewH%); 'make sure we are looking at the results view, otherwise we get peak-to-peak of the same sampled data every time
-    curPeakToPeak:=PeakToPeak(.055,.09); 'm-wave should be within ~25ms of stim'
+    curPeakToPeak:=PeakToPeak(.001,.1); 'm-wave should be within ~25ms of stim'
     printlog("Current M-wave Peak-to-Peak: %d\n", curPeakToPeak);
     curHreflex:=PeakToPeak(.09,.13); 'H-reflex should be between ~25ms to 50ms of stim'
-    printlog("Current H-reflex Peak-to-Peak: %d\n", curHreflex);
+    'printlog("Current H-reflex Peak-to-Peak: %d\n", curHreflex);
 if (stimcount% > 1) then
     PPdiff[stimcount%-2]:= curPeakToPeak - prevPeakToPeak;
     AnalyzeMwave(curPeakToPeak);
@@ -460,7 +462,7 @@ proc AnalyzeMwave(curPeakToPeak)
 endif;
 end;
 '----------------------------------------------------------------------------------------------------------------------
-' Record M-max 10 times
+' Record M-max 5 times
 '----------------------------------------------------------------------------------------------------------------------
 func RecMwave%()
 if (mMaxData%>0) then                      ' If there is already a data view open...
@@ -672,7 +674,7 @@ end;
 ' Sampling function for finding TMS resting/active motor threshold
 '----------------------------------------------------------------------------------------------------------------------
 func LocateMT%()
-
+Protocol$:= "find rMT";
 View(LogHandle());            'Make log view the current view
 Window(0,80,100,100);         'Display it at the bottom of the screen
 WindowVisible(1);             'Make it visible
@@ -695,14 +697,14 @@ endif;
 cScale := ChanScale(curChan%);
 cOffset := ChanOffset(curChan%);
 View(findrMTdata%).XRange(-1);
-View(findrMTdata%).YRange(1,((-7*cScale)+ cOffset),(7*cScale)+cOffset);
+View(findrMTdata%).YRange(1,(-500),(500));
 View(findrMTdata%).WindowVisible(1);
 View(findrMTdata%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(findrMTdata%).Window(0,0,60,80);            'Make data window right half of screen
 
-ChanHide(31);
+ChanHide(31);ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(6);ChanHide(7);ChanHide(8);ChanHide(9);ChanHide(10);
 
-ViewTrigger(7, .05, .25, 1,1); 'reset the view after each trigger'
+ViewTrigger(11, .05, .25, 1,1); 'reset the view after each trigger'
 resultViewH%:=SetResult(600, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "Bicep EMG");
 View(resultViewH%).DrawMode(1, 3);
 View(resultViewH%).YRange(1,((-1*cScale)+cOffset),(1*cScale)+cOffset);
@@ -1210,6 +1212,140 @@ endif;
 return 1;                    ' and stay in current toolbar
 end;
 '----------------------------------------------------------------------------------------------------------------------
+'----------------------------------------------------------------------------------------------------------------------
+' The pVA Record Function (Runs after MVC is found)
+'----------------------------------------------------------------------------------------------------------------------
+'----------------------------------------------------------------------------------------------------------------------
+func pVA%()
+Protocol$:="Record pVA"; 'set protocol to reflect that we are doing RECpVA% func
+pVAButtonDisable%:=4;          ' sets the global varible to track button disables
+pVAdata%:=FileNew(0,0);                 ' Open a new data file for sampling
+if pVAdata%<0 then
+    SampleStop();
+  FileClose(-1,-1);
+  pVAdata%:=FileNew(0,0);
+    if pVAdata%<0 then
+        Message("Unable to open new data file");Halt;
+    endif;
+endif;
+SampleStart();
+'-------------------------------------------------
+' Calculate Cursor locations based on MVC data
+'-------------------------------------------------
+UpperEMGLimit:=(avgBicepMVC*1.05);
+LowerEMGLimit:=(avgBicepMVC*0.95);
+HCursorDelete(-1);              'Clear any existing cursors
+'-------------------------------------------------
+View(pVAdata%).XRange(-1);
+View(pVAdata%).WindowVisible(1);
+View(pVAdata%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
+View(pVAdata%).Window(0,0,60,100);            'Make data window right half of screen
+ChanHide(31);
+'-------------------------------------------------
+'Force Feedback Bar Graph
+'-------------------------------------------------
+View(pVAdata%);
+ForceFeedbackBarGraph%:=SetResult(1,1,0,"MVC Level","");
+FrontView(ForceFeedbackBarGraph%);
+View(ForceFeedbackBarGraph%).XRange(0,1);
+View(ForceFeedbackBarGraph%).YRange(1,0,(2*avgBicepMVC));      'Set Y range to match source waveform channel
+View(ForceFeedbackBarGraph%).Window(60,0,100,100); 'Make bar graph window right 40% of screen
+Colour(12,6);
+HCursorNew(1,UpperEMGLimit);
+HCursorNew(1,LowerEMGLimit);
+FrontView(LogHandle());              'Bring the Log view to the front
+FrontView(ForceFeedbackBarGraph%);          'Bring the bar graph results view to the front
+FrontView(pVAdata%);                  'Bring the data view to the front
+return 1;
+end;
+'----------------------------------------------------------------------------------------------------------------------
+' Find Interpolated Twitch
+'----------------------------------------------------------------------------------------------------------------------
+func getTwitchAmp()
+var i%,PreTwitchAmp,MVCtwitchIndex%,MVCtwitchTime,RestingTwitchTime,TrialVA,RestingTwitchAmp,RestingTime;
+var curTwitch[300];'
+counter%:=0;
+'if getTwitch% = 1 then
+    Newsflash("Well Done! Now rest.",6,0,05,1);                              'Trial rest duration
+    seconds(0,1);
+    WaitTime:=25;
+    Waiting%();
+    PreTwitchAmp:=ChanMeasure(5,11,LastPulseTime - .15,LastPulseTime - .05)
+    view(pVAdata%).ChanData(5, curTwitch, LastPulseTime + .05, LastPulseTime + .35); 'Fill array with 300ms of data around twitch
+    MVCtwitchIndex%:=Max(curTwitch[]); 'find index of twitch max
+    MVCtwitchTime:= (LastPulseTime + .05 + (MVCtwitchIndex%/1000)); 'convert index of twitch max to time in ms
+    MVCtwitchAmp:=ChanMeasure(5,11,MVCtwitchTime-0.25,MVCtwitchTime+.025);' RMS Amplitude over 50ms of Mz at twitch max amp
+    MVCtwitchPP:=MVCtwitchAmp - PreTwitchAmp;
+    getTwitch%:=0;
+    MVCtwitchArr[TwitchTrial%]:=MVCtwitchPP;
+    MVCtwitchTimeArr[TwitchTrial%]:=MVCtwitchTime;
+
+      SampleKey(t$);                                              'Trigger digitimer for resting twitch
+            RestingTwitchTime:=View(pVAdata%).Maxtime();
+PreTwitchAmp:=ChanMeasure(5,2,RestingTwitchTime - .15,RestingTwitchTime - .1);
+    yield(1);
+    view(pVAdata%).ChanData(5, curTwitch, RestingTwitchTime + .05, RestingTwitchTime + .35); 'Fill array with 300ms of data around twitch
+var RestTwitch[300]; 'Turn vectors into single Force/Moment matrix
+ArrConst(RestTwitch[],curTwitch);
+    RestingTwitchIndex%:=Max(RestTwitch[]); 'find index of twitch max
+    RestingTime:= (RestingTwitchTime - .05 + (RestingTwitchIndex%/1000)); 'convert index of twitch max to time in ms
+    RestingTwitch:=ChanMeasure(5,11,RestingTime-.025,RestingTime+.025);' RMS Amplitude over 50ms of Mz at twitch max amp
+    RestingTwitchPP:=RestingTwitch - PreTwitchAmp;
+    RestingTwitchArr[TwitchTrial%]:=RestingTwitchPP;
+'    getRestingTwitch%:=0;
+    'return RestingTwitchArr[];
+    '--------------
+    'Get VA% as (MVC_Twitch/Resting_Twitch)*100
+    '--------------
+    TrialVA:= MVCtwitchPP/RestingTwitchPP*100;
+    VA_Arr[TwitchTrial%]:=TrialVA;
+    'seconds(0,1);
+    'WaitTime:=85;
+    'Waiting%();
+    Newsflash("Rest",85,0,05,1);
+    TwitchTrial%+=1;
+    if TwitchTrial% < 9 then
+      Newsflash("Prepare for next contraction",5,0,05,1);
+    endif;
+    if TwitchTrial% = 9 then
+      ArrSum(VA_Arr[0:10],avgVA);
+      SampleStop();
+      var fName$, fd%;
+      fName$ := View(pVAdata%).FileName$(3);
+      View(pVAdata%).FileSaveAs(print$("%s%s", fName$, "_pVA_Twitch_Data"), -1, 0, "Save analysis as...");
+      fd% := FileNew(1);
+      if (fd% < 0) then
+        printlog("Could not open text file to save data, printing to log window.\n");
+        endif;
+      if (fd% < 0) then
+        printlog("%sSTIM\t%sVAL\n", fName$, fName$);
+      else
+        View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$);
+      endif;
+      var j%;
+      for j% := 0 to 9 do
+          View(fd%).print("%d\t%f\n", i%, VA_Arr[i%]);
+          View(fd%).print("%d\t%f\n", i%, MEPTimeArr[i%]);
+        next;
+      var ret%;
+      if (fd% >= 0) then
+        ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_pVA_TwitchAmps.txt"), 1, 0, "Save analysis as...");
+        if (ret% < 0) then
+          View(fd%);
+          FileClose(0, -1);
+        else
+          View(fd%);
+          FileClose();
+        endif;
+    View(pVAdata%);
+    FileClose(0,-1);
+    pVAdata%:=-1;
+    pVAButtonDisable%:= 3; ' When finished recording allow cVA button
+    endif;
+    return 1;'VA_Arr[];
+endif;
+end;
+'----------------------------------------------------------------------------------------------------------------------
 ' Idle Functions
 '----------------------------------------------------------------------------------------------------------------------
 func Idle%()'The Idle routine is called when PC has time
@@ -1229,9 +1365,6 @@ if ((Protocol$ = "find m-wave")) then
             if Protocol$ = "Stopped" then
                 return 1;
             endif
-''''''''''''''''''''''''''''
-        'View(resultViewH%).Draw(); ''''WHY NOT MOVE THIS LINE TO updateData FUNC?????''''
-''''''''''''''''''''''''''''
         updateNecessary%:=0;
       endif;
       newestEvent := View(MwaveThreshdata%).NextTime(TrigEventChan%, currentTrigTime+.1);
@@ -1278,7 +1411,53 @@ if ((Protocol$ = "REC_MVC")) then
                 MVCrest%();
                 Trial%+=1;
         endif;
- endif;
+endif;
+'----------------------------------------------------------------------------------------------------------------------------------------------------'
+'----------------------------------------------------------------Rec pVA Idle Functions------------------------------------------'
+'----------------------------------------------------------------------------------------------------------'
+if ((Protocol$ = "Record pVA")) then
+    FrontView(pVAdata%);
+    if(View(pVAdata%).Maxtime() - LastPulseTime >= 5) then
+        curTime := View(pVAdata%).Maxtime();
+        ForceFeedbackLevel:=view(pVAdata%).ChanMeasure(5,11,curTime-.2,curTime); 'or as RMS amp over the last 200ms
+        ArrConst(View(ForceFeedbackBarGraph%).[:1],ForceFeedbackLevel);
+        DrawAll();
+'-------------------------------------------------------
+' Monitor Force levels and do Feedback display colouring
+'-------------------------------------------------------
+        EMGlvl:=view(pVAdata%).ChanMeasure(5,11,curTime-.5,curTime);
+        docase
+
+        case EMGlvl < LowerEMGLimit then
+            view(ForceFeedbackBarGraph%).ChanColourSet(1, 1, 1, 0, 0); 'Set feedback graph to red if below lower limit and...
+            view(ForceFeedbackBarGraph%).ChanColourSet(1, 2, 1, 0, 0);
+            'Sound("S!",1+8192);                                        '... play asynchronous sound (DOESNT WORK?)
+        case EMGlvl > UpperEMGLimit then
+            view(ForceFeedbackBarGraph%).ChanColourSet(1, 1, 1, 0, 0); 'Set feedback graph to red if above upper limit and...
+            view(ForceFeedbackBarGraph%).ChanColourSet(1, 2, 1, 0, 0);
+        else
+            view(ForceFeedbackBarGraph%).ChanColourSet(1, 1, 0, 1, 0); 'Set feedback graph to green if between limits
+            view(ForceFeedbackBarGraph%).ChanColourSet(1, 2, 0, 1, 0);
+        endcase;
+'-------------------------------------------------------
+' Trigger Digitimer if forces are in desired range
+'-------------------------------------------------------
+        if  (EMGlvl < UpperEMGLimit and EMGlvl > LowerEMGLimit) then
+            yield(0);
+            counter%+=1;
+            if counter% = 8 then
+                'and  FyLVL <= UpperFyLimit and FyLVL >= LowerFyLimit
+                'and  FzLVL <= UpperFzLimit and FzLVL >= LowerFzLimit) then  'If force is in target range then....
+                SampleKey(d$);                                              'Send pulse to digitimer
+                LastPulseTime:=View(pVAdata%).Maxtime();                    'Reset when the last pulse was sent
+                'getTwitch%:=1;                                               'Get twitch data
+                getTwitchAmp();
+            endif;
+        else
+            counter%:=0;
+        endif;
+    endif;
+endif;
 '----------------------------------------------------------------------------------------------------------------------------------------------------'
 '----------------------------------------------------------------Find rMT Idle Functions------------------------------------------'
 '----------------------------------------------------------------------------------------------------------'
@@ -1293,16 +1472,44 @@ if ((Protocol$ = "find rMT")) then
         printlog("Updating view\n");
         updateData();
         DoTMSAnalyze%();
-    ''''''''''''''''''''''''''''
-        View(resultViewH%).Draw(); ''''WHY NOT MOVE THIS LINE TO updateData FUNC?????''''
-    ''''''''''''''''''''''''''''
+        if Protocol$ = "Stopped" then
+           return 1;
+        endif
         updateNecessary%:=0;
     endif;
-  newestEvent := View(findrMTdata%).NextTime(TrigEventChan%, currentTrigTime+.1);
+  newestEvent := View(findrMTdata%).NextTime(11, currentTrigTime+.1);
 
   if (newestEvent > currentTrigTime) then
-    printlog("newer event found\n");
-    printlog("Updating event\n");
+    TMSTriggerTMS%(1);
+    stimcount%+=1;
+    currentTrigTime := newestEvent;
+    printlog("%f\n",currentTrigTime);
+    updateNecessary%:=1;
+  endif;
+endif;
+'----------------------------------------------------------------------------------------------------------------------------------------------------'
+'---------------------------------------------------------Recruitment Curve Idle Functions------------------------------------------'
+'----------------------------------------------------------------------------------------------------------'
+if ((Protocol$ = "Recruitment Curve")) then
+  FrontView(Data%);
+  curTime := View(findrMTdata%).Maxtime();
+    if (View(findrMTData%).Maxtime() - TMSlastCommandTime > 0.5) then
+      TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+      'armTMS%();
+    endif;
+    if (updateNecessary% and (View(findrMTdata%).Maxtime()-currentTrigTime >= .9)) then
+        printlog("Updating view\n");
+        updateData();
+        DoTMSAnalyze%();
+        if Protocol$ = "Stopped" then
+           return 1;
+        endif
+        updateNecessary%:=0;
+    endif;
+  newestEvent := View(findrMTdata%).NextTime(11, currentTrigTime+.1);
+
+  if (newestEvent > currentTrigTime) then
+    TMSTriggerTMS%(1);
     stimcount%+=1;
     currentTrigTime := newestEvent;
     printlog("%f\n",currentTrigTime);
