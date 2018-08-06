@@ -76,6 +76,7 @@ var u$:="u";
 var i$:="i";
 var o$:="o";
 var p$:="p";
+var s$:="s";
 var PreviousStim$;
 var MVClevel$;
 var DigitimerPulse$;
@@ -89,9 +90,11 @@ var MVCtwitchArr[10];
 var RestingTwitchArr[10];
 var VA_Arr[10];
 var RCintensityA%,RCintensityB%,RCintensityC%,RCintensityD%,RCintensityE%,RCintensityF%,RCintensityG%,RCintensityH%,RCintensityI%;
-var intA%,intB%,intC%,intD%,intE%,intF%,intG%,intH%,intI%,place%;
-var RCIarray[54];
+var intA%,intB%,intC%,intD%,intE%,intF%,intG%,intH%,intI%,place%,nextStim%;
+var countA%,countB%,countC%,countD%,countE%,countF%,countG%,countH%,countI%;
+var RCIarray[55];
 var rcPeakToPeak[9][6];
+var RCstimTime,RCstimCount%;
 '----------------------------------------------------------------------------------------------------------------------
 ' Fix that ^^^^^^^^^^^^^^^^^^
 '----------------------------------------------------------------------------------------------------------------------
@@ -103,7 +106,7 @@ var numEpochs% := 0;
 var rcStartIntensity%;
 var rcEndIntensity%;
 var rcNumLevels% := 7;
-var rcPeakToPeak[maxEpochs%];
+'var rcPeakToPeak[maxEpochs%];
 ' TMS control options
 const TMSMAGSTIM200% := 0;
 const TMSMAGSTIMOLD% := 1;
@@ -260,11 +263,11 @@ ToolbarSet(7,"Find MVC", MVC%);
 ToolbarSet(6,"pVA", pVA%);
 ToolbarSet(5,"TMS Locator", TMSToolbar%);
 'ToolbarSet(3,"Record rMT", LocateMT%);
-ToolbarSet(4, "&RC", RCtoolbar%);
-ToolbarSet(3,"cVA", CRR%);
+ToolbarSet(4, "&RC", actualRC%);'RCtoolbar%);
+ToolbarSet(3,"cVA", cVA%);
 ToolbarSet(-2,"Stop Sampling", HaltRec%);
-ToolbarSet(10,"&Sample start", Start%);
-toolText$:="Cutaneous Reflex Response Protocol";          ' Sets the text to appear on the left in the toolbar
+'ToolbarSet(10,"&Sample start", Start%);
+toolText$:="Voluntary Activation Protocol";          ' Sets the text to appear on the left in the toolbar
 ToolbarText(toolText$);                         ' Puts the toolText into the toolbar (in case we are returning to this toolbar)
 
 
@@ -357,7 +360,9 @@ endif;
 cScale := ChanScale(curChan%);
 cOffset := ChanOffset(curChan%);
 View(MwaveThreshdata%).XRange(-1);
-View(MwaveThreshdata%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
+View(MwaveThreshdata%).YRange(1,-5000,5000);
+View(MwaveThreshdata%).YRange(2,-5000,5000);
+View(MwaveThreshdata%).YRange(5,-1,3);
 View(MwaveThreshdata%).WindowVisible(1);
 View(MwaveThreshdata%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(MwaveThreshdata%).Window(0,0,60,80);            'Make data window right half of screen
@@ -365,7 +370,11 @@ View(MwaveThreshdata%).Window(0,0,60,80);            'Make data window right hal
 'View(MwaveThreshdata%).FiltCalc(3, BinSize(1), highPassFilter[]); 'set the filter
 'View(MwaveThreshdata%).ChanProcessAdd(1, 1, 0.01); 'Channel, 1=Smooth, Time constant (s)
 'View(MwaveThreshdata%).ChanProcessAdd(1, 9, 0.01); 'Channel, 9=Median filter, Time constant (s)
-ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(9);
+if which% = 2 then 'dont hide Fz channel
+    ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(9);ChanHide(30);ChanHide(31);ChanHide(32);
+else 'do hide Fz channel
+    ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(9);ChanHide(10);ChanHide(30);ChanHide(31);ChanHide(32);
+endif;
 
 ViewTrigger(TrigEventChan%, .05, .25, 1,-1); 'reset the view after each trigger'
 resultViewH%:=SetResult(600, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "Bicep EMG");
@@ -380,7 +389,14 @@ Colour(12,6);
 View(MwaveThreshdata%); ' View sampling data
 MwaveBarGraph%:=SetResult(3,1,0,"M-wave Level","");
 View(MwaveBarGraph%).XRange(0,3);
-View(MwaveBarGraph%).YRange(1,((0*cScale)+cOffset),(2*cScale)+cOffset);      'Set Y range to match source waveform channel
+docase
+case which% = 0 then     
+    View(MwaveBarGraph%).YRange(1,0,10000);      'Set Y range to match source waveform channel
+case which% = 1 then     
+    View(MwaveBarGraph%).YRange(1,0,5000);
+case which% = 2 then     
+    View(MwaveBarGraph%).YRange(1,0,5);
+endcase;    
 View(MwaveBarGraph%).Window(60,0,100,80); 'Make bar graph window right portion of screen
 FrontView(MwaveBarGraph%);
 Colour(12,6);
@@ -414,32 +430,39 @@ if ((Protocol$ = "find m-wave")) then
     View(MwaveThreshdata%).ChanData(2, View(resultViewH%,1).[], currentTrigTime-.05, currentTrigTime+.2);
     endif
     if ((Muscle$ = "MP Stim")) then
-    View(MwaveThreshdata%).ChanData(5, View(resultViewH%,1).[], currentTrigTime-.05, currentTrigTime+.2);
+    View(MwaveThreshdata%).ChanData(5, View(resultViewH%,1).[], currentTrigTime, currentTrigTime+.5);
     endif
 endif
 if ((Protocol$ = "find rMT")) then
     View(findrMTdata%).ChanData(1, View(resultViewH%,1).[], currentTrigTime-.05, currentTrigTime+.5);
 endif
 if ((Protocol$ = "Recruitment Curve")) then
-    View(findrMTdata%).ChanData(1, View(resultViewH%,1).[], currentTrigTime-.05, currentTrigTime+.5);
+    View(data%).ChanData(1, View(resultViewH%,1).[], RCstimTime-.0, RCstimTime+.5);
 endif
 View(resultViewH%).Draw();
 end;
 
 func PeakToPeak(startTime, endTime)
 var minVal, maxVal, i%;
-    if ((Muscle$ = "Biceps")) then
-        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-    endif
-    if ((Muscle$ = "Triceps")) then
-        View(resultViewH%).Minmax(2, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-    endif
-    if ((Muscle$ = "MP Stim")) then
-        View(resultViewH%).Minmax(5, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-    endif
-    if ((Protocol$ = "find rMT")) then
-        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-    endif
+'    if ((Muscle$ = "Biceps")) then
+'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
+'    endif
+'    if ((Muscle$ = "Triceps")) then
+'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
+'    endif
+'    if ((Muscle$ = "MP Stim")) then
+'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
+'    endif
+'    if ((Protocol$ = "find rMT")) then
+'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
+'    endif
+'    if ((Protocol$ = "Recruitment Curve")) then
+'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
+'    endif
+
+'All of ^^^ those if statements are the same, so why not just use vvv this one line?
+View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
+
     printlog("current peak to peak:", maxVal - minVal);
     PPArr[stimcount%]:= maxVal - minVal;
     if(stimcount% = 1) then
@@ -461,8 +484,12 @@ var minVal, maxVal, i%;
     if(stimcount% > 2) then
       if ((Protocol$ = "find m-wave")) then
         ArrConst(View(MwaveBarGraph%).[:3],PPArr[stimcount%-3:stimcount%]);                      'Set bar graph to new peak to peak value
-      else
+      endif;
+      if ((Protocol$ = "find rMT")) then
         ArrConst(View(rMTBarGraph%).[:3],PPArr[stimcount%-3:stimcount%]);
+      endif;
+      if ((Protocol$ = "Recruitment Curve")) then
+        ArrConst(View(rcBarGraph%).[:3],PPArr[stimcount%-3:stimcount%]);
       endif
       DrawAll();  'update result views
     endif
@@ -472,9 +499,9 @@ end;
 func DoMwaveAnalyze%();
     var curPeakToPeak;
     view(resultViewH%); 'make sure we are looking at the results view, otherwise we get peak-to-peak of the same sampled data every time
-    curPeakToPeak:=PeakToPeak(.001,.1); 'm-wave should be within ~25ms of stim'
-    printlog("Current M-wave Peak-to-Peak: %d\n", curPeakToPeak);
-    curHreflex:=PeakToPeak(.09,.13); 'H-reflex should be between ~25ms to 50ms of stim'
+    curPeakToPeak:=PeakToPeak(.001,.5); 'm-wave should be within ~25ms of stim'
+    printlog("Current Peak-to-Peak: %d\n", curPeakToPeak);
+    'curHreflex:=PeakToPeak(.09,.13); 'H-reflex should be between ~25ms to 50ms of stim'
     'printlog("Current H-reflex Peak-to-Peak: %d\n", curHreflex);
 if (stimcount% > 1) then
     PPdiff[stimcount%-2]:= curPeakToPeak - prevPeakToPeak;
@@ -811,7 +838,7 @@ end;
 ' Cutaneous Reflex Response functions
 '----------------------------------------------------------------------------------------------------------------------
 '----------------------------------------------------------------------------------------------------------------------
-func CRR%()
+func cVA%()
 if (CRRData%>0) then                      ' If there is already a data view open...
   View(CRRData%);                       ' ...close it
   FileClose(0, -1);                             ' No point setting data% to 0...
@@ -1272,6 +1299,13 @@ if ((Protocol$ = "CRR")) then
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
+if ((Protocol$ = "Recruitment Curve")) then
+  SampleStop();
+  Protocol$ := "Stopped";
+  View(Data%).FileSaveAs(print$("%s%s", fName$, "_RC"), -1);
+  FileClose(-1,0);
+  ButtonDisable% := 0;
+endif;
 return 1;                    ' and stay in current toolbar
 end;
 '----------------------------------------------------------------------------------------------------------------------
@@ -1420,7 +1454,7 @@ if ((Protocol$ = "find m-wave")) then
       FrontView(MwaveThreshData%);
       curTime := View(MwaveThreshdata%).Maxtime();
 
-      if (updateNecessary% and (View(MwaveThreshdata%).Maxtime()-currentTrigTime >= .25)) then
+      if (updateNecessary% and (View(MwaveThreshdata%).Maxtime()-currentTrigTime >= 1)) then
         printlog("Updating view\n");
         updateData();
             DoMwaveAnalyze%();
@@ -1553,13 +1587,15 @@ endif;
 '---------------------------------------------------------Recruitment Curve Idle Functions------------------------------------------'
 '----------------------------------------------------------------------------------------------------------'
 if ((Protocol$ = "Recruitment Curve")) then
-  FrontView(Data%);
+  FrontView(data%);
   curTime := View(data%).Maxtime();
     if (View(data%).Maxtime() - TMSlastCommandTime > 0.5) then
-      TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+       ' armTMS%();
     endif;
     if updateNecessary% = 0 then
         if (View(data%).Maxtime() - RCstimTime > 5) then
+            TMSTriggerTMS%(1);
             SampleKey(s$);
             RCstimTime:=View(data%).Maxtime();
             RCstimCount%+=1;
@@ -1568,7 +1604,8 @@ if ((Protocol$ = "Recruitment Curve")) then
     endif;
     if updateNecessary% = 1 then
         if (View(data%).Maxtime() - RCstimTime > 1) then
-            curPeakToPeak:=peakToPeak(bestpestStartTime, bestpestEndTime);
+            updateData();
+            curPeakToPeak:=peakToPeak(0.01, 0.10);
             ANALYZErc(curPeakToPeak);
         endif;
     endif;
@@ -2410,7 +2447,7 @@ end
 proc ANALYZErc(curPeakToPeak)
 '	rcPeakToPeak[numStim%-1] := curPeakToPeak;	
 	var stim%;
-	stim% := RCIarray[RCstimCount-1];
+	stim% := RCIarray[RCstimCount%-1];
 docase
 case stim% = RCintensityA% then
     rcPeakToPeak[0][countA%]:= curPeakToPeak;
@@ -2440,16 +2477,17 @@ case stim% = RCintensityI% then
     rcPeakToPeak[8][countI%]:= curPeakToPeak;
     countI%+=1;    
 endcase;
-
+var coef[3], maxSlope, maxInt;
 if RCstimCount% = 54 then
+    Protocol$ := "Stopped";
     SampleStop();
-    FileSaveAs();
-    ANALYZEprintResults(coef[], maxSlope, maxInt); 'This won't work with current variables
+    View(Data%).FileSaveAs(print$("%s%s", fName$, "_RCurve"), -1);
+    ANALYZEprintResults(maxSlope, maxInt); 'This won't work with current variables (Coef[],maxSlope, maxInt)
     FileClose(0, 1);
 else
     nextStim%:=RCIarray[RCstimCount%];
     TMSSetIntensity%(1, nextStim%);
-    updateNecessary% = 0;
+    updateNecessary%:= 0;
 endif;
 end;
 func New%()								'New sampling window
@@ -2552,9 +2590,9 @@ func RCMeasure%()
 
 
    var coef[3], maxSlope, int;
-	ANALYZEplotFit(coef);
-	ANALYZEmaxSlope(coef, maxSlope, int);
-	ANALYZEprintResults(coef, maxSlope, int);
+	'ANALYZEplotFit(coef);
+	'ANALYZEmaxSlope(coef, maxSlope, int);
+	'ANALYZEprintResults(coef, maxSlope, int);
 	return 1;
 end;
 
@@ -2693,7 +2731,7 @@ for j% := 0 to 5 do
 next;
 
 var avg;
-avg := sum/numPerIntensity%[int%];
+avg := sum/6;
 
 				
 return avg;
@@ -2722,7 +2760,7 @@ func ANALYZEcalcMedian(int%)
 		endif; '0 <> num%
 end;
 
-proc ANALYZEprintResults(coef[], maxSlope, maxInt)
+proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 	View(LogHandle());
 	EditSelectAll();						'Select all text in log view
 	EditClear();							'Delete it
@@ -2743,13 +2781,14 @@ proc ANALYZEprintResults(coef[], maxSlope, maxInt)
 			View(fd%).print("%d\t%f\n", i%, rcPeakToPeak[i%][j%]);
 		next;
 		View(fd%).print("%s\t%f\n", print$("%dmedian", i%), ANALYZEcalcMedian(i%));
-		View(fd%).print("%s\t%f\n", print$("%davg", i%)   , ANALYZEcalcAvg(i%));
+        View(fd%).print("%s\t%f\n", print$("%davg", i%)   , ANALYZEcalcAvg(i%));
+        View(fd%).print("%s\t%f\n", print$("%dintensity", i%)   ,RCintensity%[i%])
 	next;
-	View(fd%).print("coefA\t%f\n", coef[0]);
-	View(fd%).print("coefB\t%f\n", coef[1]);
-	View(fd%).print("coefC\t%f\n", coef[2]);
-	View(fd%).print("MaxSlope\t%f\n", maxSlope);
-	View(fd%).print("MaxSlopeInt\t%f\n", maxInt);
+	'View(fd%).print("coefA\t%f\n", coef[0]);
+	'View(fd%).print("coefB\t%f\n", coef[1]);
+	'View(fd%).print("coefC\t%f\n", coef[2]);
+	'View(fd%).print("MaxSlope\t%f\n", maxSlope);
+	'View(fd%).print("MaxSlopeInt\t%f\n", maxInt);
 	var ret%;	
 	if (fd% >= 0) then 
 		ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_RC_analyze.txt"), 1, 0, "Save analysis as...");
@@ -2760,8 +2799,8 @@ proc ANALYZEprintResults(coef[], maxSlope, maxInt)
 			View(fd%);
 			FileClose();
 		endif;
-		View(xy%);
-		ret% := View(xy%).FileSaveAs(print$("%s%s", fName$, "_RC_plot.bmp"), 13, 0, "Save plot as ...");
+		'View(xy%);
+		'ret% := View(xy%).FileSaveAs(print$("%s%s", fName$, "_RC_plot.bmp"), 13, 0, "Save plot as ...");
 
 	endif;
 end;
@@ -2836,13 +2875,13 @@ proc FILTERexpFilterInit()
 end;
 func Wait%()
 
-armTMS%()   'arm the magstim
+armTMS%();   'arm the magstim
 var btime,ftime;
-btime:=view().MaxTime() + 5; 'begin time 
+btime:=view(0).MaxTime() + 5; 'begin time 
 
 while btime < ftime do         'give magstim a second to arm itself before attempting to change the ISI
-    ftime := view().MaxTime();
-    if (View().Maxtime() - TMSlastCommandTime > 0.5) then 'make sure that spike is still communicating with the magstim
+    ftime := view(0).MaxTime();
+    if (View(0).Maxtime() - TMSlastCommandTime > 0.5) then 'make sure that spike is still communicating with the magstim
       TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
     endif;    
 wend;
@@ -2874,10 +2913,12 @@ if data%<0 then
 endif;
 
 View(data%).XRange(0, 1);
+View(data%).Window(0,0,60,80);
+ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(6);ChanHide(8);ChanHide(9);ChanHide(10);ChanHide(30);ChanHide(31);ChanHide(32);
 ViewTrigger(11, .1, .9, 1,1);
 
 DrawMode(-1,2);							'Set event draw mode to lines
-Window(0,0,100,80);						'Make data window in top bit of screen
+'Window(0,0,100,80);						'Make data window in top bit of screen
 
 resultViewH%:=SetResult(5000, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "EMG-apb");
 View(resultViewH%).DrawMode(1, 2);
@@ -2886,6 +2927,11 @@ View(resultViewH%).WindowVisible(1);
 View(resultViewH%).CursorNew(XToBin(0));
 View(resultViewH%).Window(0,0,100,80);
 Colour(12,6);
+View(data%); ' View sampling data
+rcBarGraph%:=SetResult(3,1,0,"M-wave Level","");
+View(rcBarGraph%).XRange(0,3);
+View(rcBarGraph%).YRange(1,0,200);      'Set Y range to match source waveform channel
+View(rcBarGraph%).Window(60,0,100,80); 'Make bar graph window right portion of screen
 
 FrontView(resultViewH%);
 ' here are all the variables we need to re-initialize every time we start a new recording
@@ -2914,8 +2960,12 @@ RCintensityF%:= round(rMT%*1.3);
 RCintensityG%:= round(rMT%*1.4);
 RCintensityH%:= round(rMT%*1.5);
 RCintensityI%:= round(rMT%*1.6); 'High end of RC intensities is 160% of rMT
+var i%;
+for i% = 0 to 8 do 
+    RCintensity%[i%]:= round(rMT%*(0.8+(i%/10))); 'setup array of intensity values instead of individual variables (used in print/save function)
+next;
 
-RandomizeRC%();
+RandomizeRC%(); 'create randomized order of stimulus intensities for RC
 
 SampleStart();
 
@@ -2927,13 +2977,18 @@ end;
 func RandomizeRC%()
 var pick%;
     pick%:= round(rand()*10)+1;
-if place% < 53 then 
+
+if place% = 0 then      'set first intensity to 1 because first instance does not fire
+    RCIarray[0]:= 1;
+endif
+
+if place% < 54 then 
     
 docase
   case pick% = 1 then
        RandomizeRC%();
   case pick% = 2 then
-    if intA% < 7 then
+    if intA% < 6 then
       RCIarray[place%]:= RCintensityA%;
         intA%+=1;
         place%+=1;
@@ -2941,7 +2996,7 @@ docase
     else RandomizeRC%();
     endif;
   case pick% = 3 then
-    if intB% < 7 then
+    if intB% < 6 then
       RCIarray[place%]:= RCintensityB%;
         intB%+=1;
         place%+=1;
@@ -2949,7 +3004,7 @@ docase
     else RandomizeRC%();
     endif;
     case pick% = 4 then
-    if intC% < 7 then
+    if intC% < 6 then
       RCIarray[place%]:= RCintensityC%;
         intC%+=1;
         place%+=1;
@@ -2957,7 +3012,7 @@ docase
     else RandomizeRC%();
     endif;        
     case pick% = 5 then
-    if intD% < 7 then
+    if intD% < 6 then
       RCIarray[place%]:= RCintensityD%;
         intD%+=1;
         place%+=1;
@@ -2965,7 +3020,7 @@ docase
     else RandomizeRC%();
     endif;          
     case pick% = 6 then
-    if intE% < 7 then
+    if intE% < 6 then
       RCIarray[place%]:= RCintensityE%;
         intE%+=1;
         place%+=1;
@@ -2973,7 +3028,7 @@ docase
     else RandomizeRC%();
     endif;         
     case pick% = 7 then
-    if intF% < 7 then
+    if intF% < 6 then
       RCIarray[place%]:= RCintensityF%;
         intF%+=1;
         place%+=1;
@@ -2981,7 +3036,7 @@ docase
     else RandomizeRC%();
     endif;         
     case pick% = 8 then
-    if intG% < 7 then
+    if intG% < 6 then
       RCIarray[place%]:= RCintensityG%;
         intG%+=1;
         place%+=1;
@@ -2989,7 +3044,7 @@ docase
     else RandomizeRC%();
     endif; 
     case pick% = 9 then
-    if intH% < 7 then
+    if intH% < 6 then
       RCIarray[place%]:= RCintensityH%;
         intH%+=1;
         place%+=1;
@@ -2997,7 +3052,7 @@ docase
     else RandomizeRC%();
     endif;         
     case pick% = 10 then
-    if intI% < 7 then
+    if intI% < 6 then
       RCIarray[place%]:= RCintensityI%;
         intI%+=1;
         place%+=1;
