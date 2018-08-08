@@ -19,6 +19,7 @@ var data%;
 var MwaveBarGraph%:=-1;
 var ForceFeedbackBarGraph%:=-1;
 var rMTBarGraph%:=-1;
+var rcBarGraph%:=-1;
 var EMGlvl;
 var ForceFeedbackLevel;
 var Trial%:=0;
@@ -35,6 +36,7 @@ var stimcount%:=0;
 var avgPPdiff;
 var PPArr[500];
 var PPdiff[500];
+var PercentDiff[500];
 var AvgBicep[5500];
 var BicepRMS[5500];
 var FxArray[5500];
@@ -57,7 +59,7 @@ var avgFzMVC;
 var avgMxMVC;
 var avgMyMVC;
 var avgMzMVC;
-var avgBicepMVC:=4.2;
+var avgBicepMVC:=4.4;
 var UpperEMGLimit,LowerEMGLimit;
 var rNum%:=2;
 var TMSintensityA;
@@ -94,7 +96,9 @@ var intA%,intB%,intC%,intD%,intE%,intF%,intG%,intH%,intI%,place%,nextStim%;
 var countA%,countB%,countC%,countD%,countE%,countF%,countG%,countH%,countI%;
 var RCIarray[55];
 var rcPeakToPeak[9][6];
+var RCintensity%[9];
 var RCstimTime,RCstimCount%;
+var PDC%;
 '----------------------------------------------------------------------------------------------------------------------
 ' Fix that ^^^^^^^^^^^^^^^^^^
 '----------------------------------------------------------------------------------------------------------------------
@@ -437,7 +441,7 @@ if ((Protocol$ = "find rMT")) then
     View(findrMTdata%).ChanData(1, View(resultViewH%,1).[], currentTrigTime-.05, currentTrigTime+.5);
 endif
 if ((Protocol$ = "Recruitment Curve")) then
-    View(data%).ChanData(1, View(resultViewH%,1).[], RCstimTime-.0, RCstimTime+.5);
+    View(data%).ChanData(1, View(resultViewH%,1).[], RCstimTime-.05, RCstimTime+.5);
 endif
 View(resultViewH%).Draw();
 end;
@@ -505,6 +509,16 @@ func DoMwaveAnalyze%();
     'printlog("Current H-reflex Peak-to-Peak: %d\n", curHreflex);
 if (stimcount% > 1) then
     PPdiff[stimcount%-2]:= curPeakToPeak - prevPeakToPeak;
+    PercentDiff[stimcount%-2]:= (curPeakToPeak - prevPeakToPeak)/prevPeakToPeak*100;
+    if PercentDiff[stimcount%-2] < 1 then
+        PDC%+=1;
+    else
+        PDC%:= 0;
+        if PercentDiff[stimcount%-3] > 1 then
+            PDC%:= 1;
+        endif;
+    endif;
+    
     AnalyzeMwave(curPeakToPeak);
     return 0;
 endif
@@ -516,7 +530,11 @@ proc AnalyzeMwave(curPeakToPeak)
     var fName$,ret%;
     if (stimcount% > 2) then
         avgPPdiff:= (PPdiff[stimcount%-2] + PPdiff[stimcount%-1] + PPdiff[stimcount%])/3;
-        if (avgPPdiff > 0.01) then
+      if Muscle$ = "MP Stim" then
+        avgPPdiff:= avgPPdiff*10; 'if doing MP Stim, PP differences are much smaller, therefor we amplify the difference
+      endif;
+    if (avgPPdiff > 0.01) then
+        'if PDC% < 2 then
           Newsflash("Increase Stimulus Intensity by 10mA",5,0,05,1);
           prevPeakToPeak:=curPeakToPeak;
         ' go back to idle or whatever to continue recording/triggering
@@ -943,6 +961,8 @@ return 1;                    ' and stay in current toolbar
 end;
 func Randomize%()
 if Trial% = 23 then
+    Newsflash("All Done!",(10),0,05,1);
+    Protocol$:="Stopped";
     HaltRec%();
 endif;
 
@@ -951,131 +971,27 @@ docase
   case rNum% = 1 then
     if numZero% < 6 then
       MVClevel$:="At Rest";
-      'DigitimerPulse$:="No";
-      'TMSpulse$:="Immediate";
       numZero%+=1;
     else Randomize%();
     endif;
   case rNum% = 2 then
     if numTwo% < 6 then
       MVClevel$:="50 Percent";
-      'DigitimerPulse$:="No";
-      'TMSpulse$:="Immediate";
       numTwo%+=1;
     else Randomize%();
     endif;
   case rNum% = 3 then
     if numThree% < 6 then
       MVClevel$:="75 Percent";
-      'DigitimerPulse$:="Single";
-      'TMSpulse$:="No";
       numThree%+=1;
     else Randomize%();
     endif;
   case rNum% = 4 then
     if numFour% < 6 then
       MVClevel$:="100 Percent";
-      'DigitimerPulse$:="Single";
-      'TMSpulse$:="No";
       numFour%+=1;
     else Randomize%();
     endif;
-'  case rNum% = 5 then
-'    if numFive% < 3 then
-'      MVClevel$:="At Rest";
-'      DigitimerPulse$:="Single";
-'      TMSpulse$:="Immediate";
-'      numFive%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 6 then
-'    if numSix% < 3 then
-'      MVClevel$:="Fifty Percent";
-'      DigitimerPulse$:="Single";
-'      TMSpulse$:="Immediate";
-'      numSix%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 7 then
-'    if numSeven% < 3 then
-'      MVClevel$:="At Rest";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+0ms";
-'      numSeven%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 8 then
-'    if numEight% < 3 then
-'      MVClevel$:="Fifty Percent";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+0ms";
-'      numEight%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 9 then
-'    if numNine% < 3 then
-'      MVClevel$:="At Rest";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+40ms";
-'      numNine%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 10 then
-'    if numTen% < 3 then
-'      MVClevel$:="Fifty Percent";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+40ms";
-'      numTen%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 11 then
-'    if numEleven% < 3 then
-'      MVClevel$:="At Rest";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+70ms";
-'      numEleven%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 12 then
-'    if numTwelve% < 3 then
-'      MVClevel$:="Fifty Percent";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+70ms";
-'      numTwelve%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 13 then
-'    if numThirteen% < 3 then
-'      MVClevel$:="At Rest";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+100ms";
-'      numThirteen%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 14 then
-'    if numFourteen% < 3 then
-'      MVClevel$:="Fifty Percent";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="+100ms";
-'      numFourteen%+=1;
-'    else Randomize%();
-'  endif;
-'  case rNum% = 15 then
-'    if numFifteen% < 3 then
-'      MVClevel$:="At Rest";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="No";
-'      numFifteen%+=1;
-'    else Randomize%();
-'    endif;
-'  case rNum% = 16 then
-'    if numSixteen% < 3 then
-'      MVClevel$:="Fifty Percent";
-'      DigitimerPulse$:="Train";
-'      TMSpulse$:="No";
-'      numSixteen%+=1;
-'    else Randomize%();
-'    endif;
 endcase;
 return 1;                    ' and stay in current toolbar
 end;
@@ -1123,28 +1039,6 @@ docase
     case cVA$ = "Cutaneous Stim" then
         TMSTriggerTMS%(1);
         SampleKey(a$);
-'case DigitimerPulse$ ="No" then
-'    'SampleKey(t$);
-'    TMSTriggerTMS%(1);
-'    PreviousStim$:="TMS Only";
-'  case DigitimerPulse$ ="Single" then
-'    PreviousStim$:="Digitimer Only";
-'    if TMSpulse$ ="No" then
-'      SampleKey(d$);
-'    else
-'      'SampleKey(t$);
-'      TMSTriggerTMS%(1);
-'      SampleKey(d$);
-'    endif;
-'  case DigitimerPulse$ ="Train" then
-'    PreviousStim$:="Painful";
-'    if TMSpulse$ ="No" then
-'      SampleKey(a$);
-'    else
-'      'SampleKey(t$);
-'      TMSTriggerTMS%(1);
-'      SampleKey(a$);
-'    endif;
 endcase;
 docase
   case rNum% = 1 then
@@ -1179,12 +1073,12 @@ docase
     SampleText("15", -1);
   case rNum% = 16 then
     SampleText("16", -1);
-  endcase;
+endcase;
+WaitLoop:=1;
 Trial%+=1;
 RandomTime%();
 randomize%();
 EffortAdjust%();
-'SetParameters%();
 Newsflash("Well that was stimulating!",(5),0,05,1);  'Trial rest duration
 Newsflash("Arm TMS",(5),0,05,1);
 SetParameters%();
@@ -1452,7 +1346,7 @@ if ((Protocol$ = "find m-wave")) then
     if (MwaveThreshdata%>=0) then
       var curTime, eTime, newestEvent;
       FrontView(MwaveThreshData%);
-      curTime := View(MwaveThreshdata%).Maxtime();
+       curTime := View(MwaveThreshdata%).Maxtime();
 
       if (updateNecessary% and (View(MwaveThreshdata%).Maxtime()-currentTrigTime >= 1)) then
         printlog("Updating view\n");
@@ -1596,6 +1490,7 @@ if ((Protocol$ = "Recruitment Curve")) then
     if updateNecessary% = 0 then
         if (View(data%).Maxtime() - RCstimTime > 5) then
             TMSTriggerTMS%(1);
+            RCmark();
             SampleKey(s$);
             RCstimTime:=View(data%).Maxtime();
             RCstimCount%+=1;
@@ -1622,7 +1517,6 @@ if ((Protocol$ = "CRR")) then
     FrontView(CRRdata%);
     if (View(CRRdata%).Maxtime() - TMSlastCommandTime > 0.5) then
       TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
-      'armTMS%();
     endif;
         if ready$ = "First Time" then
             if view(CRRdata%).Maxtime() - ReadyTime > 2 then
@@ -1654,32 +1548,7 @@ if ((Protocol$ = "CRR")) then
 '-------------------------------------------------------
 ' Trigger Magstim if forces are in desired range
 '-------------------------------------------------------
-'        if (View(CRRdata%).Maxtime() - (waitTime + rTime) > 1) then
-'            SetParameters%();
-'        endif;
-'        if (View(CRRdata%).Maxtime() - (waitTime + rTime) > 5) then
-'        if ready$ = "No" then
-'            yield(0);
-'                  counter%+=1;
-'                  if counter% >= 6 then
-'                     'waitforTMStoArm:=View(CRRdata%).Maxtime();
-'                    SetParameters%();
-'                  endif;
-'                endif;
-'         docase
-'          case TMSstatus$ = "Not Armed" then
-'            'TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
-'            armTMS%();
-'            TMSstatus$:= "Arming";
-'          case TMSstatus$ = "Arming" then
-'            waitforTMStoArm:= view(CRRdata%).Maxtime();
-'            TMSstatus$:= "Armed";
-'            case TMSstatus$ = "Armed" then
-'                if (View(CRRdata%).Maxtime() - waitforTMStoArm > 2) then
-'                    SetParameters%();
-'                    endif;
-'         endcase;
-'        endif;
+
     if ready$ = "Yes" then
 '      if MVClevel$ = "At Rest" then
         docase
@@ -1696,9 +1565,10 @@ if ((Protocol$ = "CRR")) then
                   yield(0);
                   counter%+=1;
                   if counter% >= 20 then
-                                ready$:="No";
-                                TMSstatus$:="Not Armed";
-                    Stimulus%()
+                    ready$:="No";
+                    TMSstatus$:="Not Armed";
+                    cVAmark();
+                    Stimulus%();
                   endif
                 else
                   counter%:=0;
@@ -1706,13 +1576,25 @@ if ((Protocol$ = "CRR")) then
             endif;
           endcase;
       endif;
-       if MVClevel$ = "At Rest" then
+        if MVClevel$ = "At Rest" then
+            if WaitLoop = 1 then   'Wait loop to ensure Magstim has time to arm/charge before firing stimulus
+                    TimeOne:=view(CRRdata%).Maxtime();
+                    WaitLoop:=2;
+                endif;
+                if waitLoop = 2 then
+                    TimeTwo:=view(CRRdata%).Maxtime();
+                    if TimeTwo - TimeOne < 5 then
+                        yield(0)
+                    else
+                        WaitLoop:=0;
+                endif;
         if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
           yield(0);
           counter%+=1;
           if counter% >= 30 then
             ready$:="No";
-            Stimulus%()
+            cVAmark();
+            Stimulus%();
           endif
         else     
             if MVClevel$ = "50 Percent" then
@@ -1721,7 +1603,8 @@ if ((Protocol$ = "CRR")) then
           counter%+=1;
           if counter% >= 20 then
             ready$:="No";
-            Stimulus%()
+            cVAmark();
+            Stimulus%();
           endif
         else
           counter%:=0;
@@ -1733,6 +1616,7 @@ if ((Protocol$ = "CRR")) then
           counter%+=1;
           if counter% >= 20 then
             ready$:="No";
+            cVAmark()
             Stimulus%()
           endif
         else
@@ -1745,6 +1629,7 @@ if ((Protocol$ = "CRR")) then
           counter%+=1;
           if counter% >= 20 then
             ready$:="No";
+            cVAmark()                
             Stimulus%()
           endif
         else
@@ -2783,7 +2668,10 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 		View(fd%).print("%s\t%f\n", print$("%dmedian", i%), ANALYZEcalcMedian(i%));
         View(fd%).print("%s\t%f\n", print$("%davg", i%)   , ANALYZEcalcAvg(i%));
         View(fd%).print("%s\t%f\n", print$("%dintensity", i%)   ,RCintensity%[i%])
-	next;
+    next;
+    for i% := 0 to 54 do 
+        View(fd%).print("%s\t%f\n", print$("%d", i%)   ,RCIarray%[i%])
+    next;
 	'View(fd%).print("coefA\t%f\n", coef[0]);
 	'View(fd%).print("coefB\t%f\n", coef[1]);
 	'View(fd%).print("coefC\t%f\n", coef[2]);
@@ -2961,8 +2849,8 @@ RCintensityG%:= round(rMT%*1.4);
 RCintensityH%:= round(rMT%*1.5);
 RCintensityI%:= round(rMT%*1.6); 'High end of RC intensities is 160% of rMT
 var i%;
-for i% = 0 to 8 do 
-    RCintensity%[i%]:= round(rMT%*(0.8+(i%/10))); 'setup array of intensity values instead of individual variables (used in print/save function)
+for i% := 0 to 8 do 
+    RCintensity%[i%]:= round(rMT%*(0.8+(i%*.10))); 'setup array of intensity values instead of individual variables (used in print/save function)
 next;
 
 RandomizeRC%(); 'create randomized order of stimulus intensities for RC
@@ -3065,3 +2953,39 @@ endcase;
 endif;    
 return 1;
 end
+func RCmark()
+	var stim%;
+	stim% := RCIarray[RCstimCount%-1];
+docase
+case stim% = RCintensityA% then
+    SampleText("1", -1, 1);
+case stim% = RCintensityB% then
+    SampleText("2", -1, 2);
+case stim% = RCintensityC% then
+    SampleText("3", -1, 3);
+case stim% = RCintensityD% then
+    SampleText("4", -1, 4);
+case stim% = RCintensityE% then
+    SampleText("5", -1, 5);
+case stim% = RCintensityF% then
+    SampleText("6", -1, 6);
+case stim% = RCintensityG% then
+    SampleText("7", -1, 7);
+case stim% = RCintensityH% then
+    SampleText("8", -1, 8);
+case stim% = RCintensityI% then
+    SampleText("9", -1, 9);    
+endcase;
+end;
+func cVAmark()
+docase
+case MVClevel$ = "At Rest" then
+    SampleText("At_Rest", -1, 1);
+case MVClevel$ = "50 Percent" then
+    SampleText("50_Percent", -1, 2);
+case MVClevel$ = "75 Percent" then
+    SampleText("75_Percent", -1, 3);
+case MVClevel$ = "100 Percent" then
+    SampleText("100_Percent", -1, 4);
+endcase;
+end;
