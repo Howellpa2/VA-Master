@@ -13,7 +13,7 @@ var MwaveThreshdata%:= -1;
 var findrMTdata%:=-1;
 var mMaxData%:=-1;
 var MVCdata%:=-1;
-var CRRData%:=-1;
+var cVAData%:=-1;
 var pVAdata%:=-1;
 var data%;
 var MwaveBarGraph%:=-1;
@@ -53,6 +53,8 @@ var TrialMxMVC[6][1];
 var TrialMyMVC[6][1];
 var TrialMzMVC[6][1];
 var avgFMarray[1][6];
+var activeMVC_one,activeMVC_two,activeMVC_three;
+var activeFxAvg;
 var avgFxMVC;
 var avgFyMVC;
 var avgFzMVC;
@@ -94,11 +96,14 @@ var VA_Arr[10];
 var RCintensityA%,RCintensityB%,RCintensityC%,RCintensityD%,RCintensityE%,RCintensityF%,RCintensityG%,RCintensityH%,RCintensityI%;
 var intA%,intB%,intC%,intD%,intE%,intF%,intG%,intH%,intI%,place%,nextStim%;
 var countA%,countB%,countC%,countD%,countE%,countF%,countG%,countH%,countI%;
-var RCIarray[55];
+var RCIarray%[55];
 var rcPeakToPeak[9][6];
 var RCintensity%[9];
 var RCstimTime,RCstimCount%;
 var PDC%;
+var skip%:= 0;
+var WaitLoop%:= 1;
+var TimeOne,TimeTwo;
 '----------------------------------------------------------------------------------------------------------------------
 ' Fix that ^^^^^^^^^^^^^^^^^^
 '----------------------------------------------------------------------------------------------------------------------
@@ -201,7 +206,7 @@ endif;
 INITIALIZESubjectData();
 proc INITIALIZESubjectData()
 fName$ := Input$("Enter subject ID", "");
-FilePathSet("", 0);
+'FilePathSet("", 0);
 'SampleAutoFile(1);
 end;
 InitializeSensorInfo();
@@ -220,7 +225,7 @@ const allow%:=1023;
 var ButtonDisable%:=0;              ' Global var to hold the value of the toobar buttons which are disabled
 var toolText$;                      ' Holds the text string to appear in the toolbar
 
-CRRToolbar();                       'Calls toolbar
+cVAToolbar();                       'Calls toolbar
 Halt;
 proc SetDefaultOpts()
 	contractionMonitor% := 0;
@@ -241,7 +246,7 @@ func RCtoolbar%()
 	'ToolbarSet(5, "&PP", doPP%);
 	Toolbar("Select procedure", 1023);
 	'New%();
-	CRRToolbar();
+	cVAToolbar();
 end;
 func Start%()							'If "Start" is pressed
 	SampleStart();							'Start sampling
@@ -257,20 +262,20 @@ func Start%()							'If "Start" is pressed
 	return 1;								'Stay with toolbar
 
 end;
-proc CRRToolbarButtons()               ' Buttons for Toolbar (they're self explanitory for the most part)
+proc cVAToolbarButtons()               ' Buttons for Toolbar (they're self explanitory for the most part)
 ToolbarClear();
 ToolbarSet(0,"",Idle%);                  'Call Idle%() whenever there is free time
 ToolbarSet(1,"Quit", Back%);
-ToolbarSet(9,"Find M-max", FindMwave%);
-ToolbarSet(8,"Record M-max", RecMwave%);
-ToolbarSet(7,"Find MVC", MVC%);
+ToolbarSet(10,"Find M-max", FindMwave%);
+ToolbarSet(9,"Record M-max", RecMwave%);
+ToolbarSet(8,"Find MVC", MVC%);
+ToolbarSet(7,"MP Stim", MPstim%);
 ToolbarSet(6,"pVA", pVA%);
 ToolbarSet(5,"TMS Locator", TMSToolbar%);
 'ToolbarSet(3,"Record rMT", LocateMT%);
-ToolbarSet(4, "&RC", actualRC%);'RCtoolbar%);
+ToolbarSet(4, "RC", actualRC%);'RCtoolbar%);
 ToolbarSet(3,"cVA", cVA%);
 ToolbarSet(-2,"Stop Sampling", HaltRec%);
-'ToolbarSet(10,"&Sample start", Start%);
 toolText$:="Voluntary Activation Protocol";          ' Sets the text to appear on the left in the toolbar
 ToolbarText(toolText$);                         ' Puts the toolText into the toolbar (in case we are returning to this toolbar)
 
@@ -295,8 +300,8 @@ if ButtonDisable% = 1 then         ' Disable all tooolbar buttons when sampling 
   ToolbarEnable(1, 0);
 endif;
 end;
-func CRRToolbar()
-CRRToolbarButtons();                ' Set up main toolbar buttons
+func cVAToolbar()
+cVAToolbarButtons();                ' Set up main toolbar buttons
 Toolbar(toolText$, allow%);         ' Displays and waits at toolbar
 return 1;
 end;
@@ -304,7 +309,7 @@ func TMStoolbar%()                ' Do the pVA toolbar
 TMStoolbarButtons();              ' Set up pVA toolbar buttons
 var pVAButtonDisable%:= 0;                      ' Default toolbar button status
 Toolbar(toolText$, allow%);            ' Displays and waits at toolbar
-CRRToolbarButtons();              ' When we leave, set up buttons for main toolbar again
+cVAToolbarButtons();              ' When we leave, set up buttons for main toolbar again
 return 1;                    ' Stay in main toolbar
 end;
 proc TMSToolbarButtons()            ' Buttons for pVA Toolbar
@@ -327,21 +332,23 @@ end;
 '----------------------------------------------------------------------------------------------------------------------
 func FindMwave%()
 Protocol$:= "find m-wave";
-var ok%,which%;
-  DlgCreate("Which Muscle Group?");
-  DlgList(1,"Muscle Group","Biceps|Triceps|MP Stim"); 'version 3 onwards
-  DlgButton(0,"Cancel");
-  DlgButton(1,"OK");
-  ok% := DlgShow(which%);
-if which% = 0 then
-    Muscle$ := "Biceps";
-endif
-if which% = 1 then
-    Muscle$ := "Triceps";
-endif
-if which% = 2 then
-    Muscle$ := "MP Stim";
-endif
+if skip% = 0 then 
+    var ok%,which%;
+    DlgCreate("Which Muscle Group?");
+    DlgList(1,"Muscle Group","Biceps|Triceps"); 'version 3 onwards
+    DlgButton(0,"Cancel");
+    DlgButton(1,"OK");
+    ok% := DlgShow(which%);
+    if which% = 0 then
+        Muscle$ := "Biceps";
+    endif;
+    if which% = 1 then
+        Muscle$ := "Triceps";
+    endif;
+else
+    Muscle$:= "MP Stim";
+endif;
+
 View(LogHandle());            'Make log view the current view
 Window(0,80,100,100);         'Display it at the bottom of the screen
 WindowVisible(1);             'Make it visible
@@ -448,23 +455,7 @@ end;
 
 func PeakToPeak(startTime, endTime)
 var minVal, maxVal, i%;
-'    if ((Muscle$ = "Biceps")) then
-'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-'    endif
-'    if ((Muscle$ = "Triceps")) then
-'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-'    endif
-'    if ((Muscle$ = "MP Stim")) then
-'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-'    endif
-'    if ((Protocol$ = "find rMT")) then
-'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-'    endif
-'    if ((Protocol$ = "Recruitment Curve")) then
-'        View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
-'    endif
 
-'All of ^^^ those if statements are the same, so why not just use vvv this one line?
 View(resultViewH%).Minmax(1, XToBin(startTime), XToBin(endTime), minVal, maxVal);
 
     printlog("current peak to peak:", maxVal - minVal);
@@ -514,9 +505,9 @@ if (stimcount% > 1) then
         PDC%+=1;
     else
         PDC%:= 0;
-        if PercentDiff[stimcount%-3] > 1 then
-            PDC%:= 1;
-        endif;
+'        if PercentDiff[stimcount%-3] < 1 then
+'            PDC%:= 1;
+'        endif;
     endif;
     
     AnalyzeMwave(curPeakToPeak);
@@ -525,43 +516,47 @@ endif
 end;
 
 proc AnalyzeMwave(curPeakToPeak)
-    var MwaveMax, MwaveStimMax, avgPPdiff;
-    var MwaveStimIntensity;
-    var fName$,ret%;
-    if (stimcount% > 2) then
-        avgPPdiff:= (PPdiff[stimcount%-2] + PPdiff[stimcount%-1] + PPdiff[stimcount%])/3;
-      if Muscle$ = "MP Stim" then
+var MwaveMax, MwaveStimMax, avgPPdiff, MwaveStimIntensity, ret%;
+if (stimcount% > 2) then
+    avgPPdiff:= (PPdiff[stimcount%-2] + PPdiff[stimcount%-1] + PPdiff[stimcount%])/3;
+    if Muscle$ = "MP Stim" then
         avgPPdiff:= avgPPdiff*10; 'if doing MP Stim, PP differences are much smaller, therefor we amplify the difference
-      endif;
+    endif;
     if (avgPPdiff > 0.01) then
         'if PDC% < 2 then
-          Newsflash("Increase Stimulus Intensity by 10mA",5,0,05,1);
-          prevPeakToPeak:=curPeakToPeak;
+        Newsflash("Increase Stimulus Intensity by 10mA",5,0,05,1);
+        prevPeakToPeak:=curPeakToPeak;
         ' go back to idle or whatever to continue recording/triggering
-        else 'plateau has been reached and we calculate and save final information
-          SampleStop();                                   ' Stop sampling
-          Protocol$ := "Stopped";
-          Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
-          var i%, PPvals%;
-          fName$ := View(MwaveThreshData%).FileName$(3);
-          PPvals% := FileNew(1);
-          for i%:= 0 to len(PPArr[])-1 do;
-              View(PPvals%).print("%g",PPArr[i%]);
-          next;
-          if (PPvals% >= 0) then
-            ret% := View(PPvals%).FileSaveAs(print$("%s%s", fName$, "_mWave_PeaktoPeaks.txt"), 1, 0, "Save analysis as...");
-          if (ret% < 0) then
-            View(PPvals%);
-            FileClose(0, -1);
-          else
-            View(PPvals%);
-              FileClose();
-          endif;
-
+    else 'plateau has been reached and we calculate and save final information
+        var ok%,continue%; 'but only if user manually reviews data and agrees a plateau has been reached
+        DlgCreate("Potential Plateau");
+        DlgCheck(1,"Continue?"); 
+        DlgButton(0,"Cancel");
+        DlgButton(1,"OK");
+        ok% := DlgShow(continue%);
+        if continue% = 0 then       
+            SampleStop();                                   ' Stop sampling
+            Protocol$ := "Stopped";
+            Newsflash("M-Max Stimulus Intensity Found",10.0,0,05,1);
+            var i%, PPvals%;
+            PPvals% := FileNew(1);
+            for i%:= 0 to len(PPArr[])-1 do;
+                View(PPvals%).print("%g",PPArr[i%]);
+            next;
+            if (PPvals% >= 0) then
+                ret% := View(PPvals%).FileSaveAs(print$("%s%s", fName$, "_mWave_PeaktoPeaks.txt"), 1, 0, "Save analysis as...");
+                if (ret% < 0) then
+                    View(PPvals%);
+                    FileClose(0, -1);
+                else
+                    View(PPvals%);
+                    FileClose();
+                endif;
+            endif;
+            View(MwaveThreshdata%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
+            FileClose(-1,0);
+            ButtonDisable%:= 0;
         endif;
-        View(MwaveThreshdata%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
-        FileClose(-1,0);
-        ButtonDisable%:= 0;
     endif;
 endif;
 end;
@@ -601,14 +596,14 @@ var i%;
 Protocol$ := "REC m-wave";
 SampleStart(); 'begin sampling
   ButtonDisable% := 1;
-  Newsflash("Ensure Digitimer is at M-Max Intensity",30,0,05,1); 'Trial start
+  Newsflash("Ensure Digitimer is at 1.20x M-Max Intensity",30,0,05,1); 'Trial start
 for i%:=0 to 4 do
     FrontView(mMaxData%);
     SampleKey(d$);
     Newsflash("Well that was stimulating!",10,0,05,1);                              'Trial rest duration
 next;
     SampleStop();
-    View(mMaxData%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
+    View(mMaxData%).FileSaveAs(print$("%s%s_mMax", fName$), -1);
     FileClose(-1,0);
     ButtonDisable% := 0;
 return 1;                    ' and stay in current toolbar
@@ -659,27 +654,48 @@ Trial%:=0; 'Set Trial number to zero before recording starts
 UpperEMGLimit:=9;
 LowerEMGLimit:=1;
 SampleStart(); 'begin sampling
-ButtonDisable% := 1;
+
+ChanProcessAdd(5, 8, 0.2); 'add a 200ms RMS averaging filter
+
 Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
 MVCstartTime[Trial%]:=View(MVCdata%).Maxtime();
 sTime:=View(MVCdata%).Maxtime();
+CursorNew((sTime - 1),0);
 return 1;                    ' and stay in current toolbar
 end;
 
 func MVCrest%()
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+''''''''''''''sub func to use active cursor for MVC value search'''''''''''''''''
+CursorNew(cursor(0)+1,1);
+CursorActive(1, 1, 5, "Cursor(0)", "Cursor(0)+7");
+CursorSearch(1);
+var ActvCursorTime:= Cursor(1);
+docase
+case Trial% = 0 then
+    activeMVC_one:=ChanMeasure(5, 2, ActvCursorTime-.25, ActvCursorTime+.25);
+case Trial% = 1 then
+    activeMVC_two:=ChanMeasure(5, 2, ActvCursorTime-.25, ActvCursorTime+.25);
+case Trial% = 2 then
+    activeMVC_three:=ChanMeasure(5, 2, ActvCursorTime-.25, ActvCursorTime+.25);
+    activeFxAvg:= (activeMVC_one + activeMVC_two + activeMVC_three) / 3;
+endcase;
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
   FindMVC();
   Newsflash("Well done! Now Rest",85,0,05,1);                      'Trial rest duration
   if Trial% < 2 then
     Newsflash("Prepare for next contraction",2,0,05,1);
     Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
     sTime:=View(MVCdata%).Maxtime();
+    CursorNew((sTime - 1),0); 'update cursor(0) position to new start time
   endif;
   if Trial% = 2 then
+    Protocol$:="Stopped";    
     SampleStop();
-    View(MVCData%).FileSaveAs(print$("%s%s", fName$, "_MVC"), -1);
+    View(MVCData%).FileSaveAs(print$("%s%s_MVC", fName$), -1);
     FileClose(-1,0);
-    ButtonDisable% := 0;
-    Protocol$:="Stopped";
   endif;
 return 1;                    ' and stay in current toolbar
 end;
@@ -750,6 +766,8 @@ docase
     printlog("Avg Force in Y: %f, Moment in Y: %f\n", ConvertedFyMVC,ConvertedMyMVC);
     printlog("Avg Force in Z: %f, Moment in Z: %f\n", ConvertedFzMVC,ConvertedMzMVC);
     printlog("Sensor Voltage in Z: %f", avgFzMVC);
+    
+    PrintLog("active cursor Fz measurements: %f, %f, %f, avg: %f", activeMVC_one, activeMVC_two, activeMVC_three, activeFxAvg);
 endcase    
 UpperEMGLimit:=(avgBicepMVC*1.5);
 LowerEMGLimit:=(avgBicepMVC*0.95);
@@ -857,17 +875,17 @@ end;
 '----------------------------------------------------------------------------------------------------------------------
 '----------------------------------------------------------------------------------------------------------------------
 func cVA%()
-if (CRRData%>0) then                      ' If there is already a data view open...
-  View(CRRData%);                       ' ...close it
+if (cVAData%>0) then                      ' If there is already a data view open...
+  View(cVAData%);                       ' ...close it
   FileClose(0, -1);                             ' No point setting data% to 0...
 endif;
 
-CRRData%:=FileNew(0,0);                 ' Open a new data file for sampling
-if CRRData%<0 then
+cVAData%:=FileNew(0,0);                 ' Open a new data file for sampling
+if cVAData%<0 then
     SampleStop();
   FileClose(-1,-1);
-  CRRData%:=FileNew(0,0);
-    if CRRData%<0 then
+  cVAData%:=FileNew(0,0);
+    if cVAData%<0 then
         Message("Unable to open new data file");Halt;
     endif;
 endif;
@@ -920,16 +938,16 @@ if cVA$ = "Cutaneous Stim" then
 endif
 cScale := ChanScale(curChan%);
 cOffset := ChanOffset(curChan%);
-View(CRRData%).XRange(-1);
-View(CRRData%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
-View(CRRData%).WindowVisible(1);
-View(CRRData%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
-View(CRRData%).Window(0,0,60,80);            'Make data window right half of screen
+View(cVAData%).XRange(-1);
+View(cVAData%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
+View(cVAData%).WindowVisible(1);
+View(cVAData%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
+View(cVAData%).Window(0,0,60,80);            'Make data window right half of screen
 ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(8);ChanHide(9);
 '-------------------------------------------------
 'Force Feedback Bar Graph
 '-------------------------------------------------
-View(CRRData%);
+View(cVAData%);
 ForceFeedbackBarGraph%:=SetResult(1,1,0,"Force Level","");
 FrontView(ForceFeedbackBarGraph%);
 View(ForceFeedbackBarGraph%).XRange(0,1);
@@ -938,8 +956,8 @@ View(ForceFeedbackBarGraph%).Window(60,0,100,80); 'Make bar graph window right 4
 Colour(12,6);
 FrontView(LogHandle());              'Bring the Log view to the front
 FrontView(ForceFeedbackBarGraph%);          'Bring the bar graph results view to the front
-FrontView(CRRData%);                  'Bring the data view to the frontFrontView(MVCData%);          'Bring the data view to the front
-Protocol$ := "CRR";
+FrontView(cVAData%);                  'Bring the data view to the frontFrontView(MVCData%);          'Bring the data view to the front
+Protocol$ := "cVA";
 Trial%:=0; 'Set Trial number to zero before recording starts
 UpperEMGLimit:=(avgBicepMVC*0.55);
 LowerEMGLimit:=(avgBicepMVC*0.45);
@@ -955,7 +973,7 @@ RandomTime%();
 randomize%();
 EffortAdjust%();
 ready$:="First Time";
-ReadyTime:=view(CRRdata%).Maxtime();
+ReadyTime:=view(cVAdata%).Maxtime();
 'SetParameters%();
 return 1;                    ' and stay in current toolbar
 end;
@@ -1020,7 +1038,7 @@ docase
     View(ForceFeedbackBarGraph%).HCursorNew(1,UpperEMGLimit);
     View(ForceFeedbackBarGraph%).HCursorNew(1,LowerEMGLimit);
   case MVClevel$="100 Percent" then
-    UpperEMGLimit:=(avgBicepMVC*1.10);
+    UpperEMGLimit:=(avgBicepMVC*1.20);
     LowerEMGLimit:=(avgBicepMVC*0.95);
     View(ForceFeedbackBarGraph%).HCursorDelete(-1);
     View(ForceFeedbackBarGraph%).YRange(1,0,2*avgBicepMVC);
@@ -1074,7 +1092,7 @@ docase
   case rNum% = 16 then
     SampleText("16", -1);
 endcase;
-WaitLoop:=1;
+WaitLoop%:=1;
 Trial%+=1;
 RandomTime%();
 randomize%();
@@ -1083,7 +1101,7 @@ Newsflash("Well that was stimulating!",(5),0,05,1);  'Trial rest duration
 Newsflash("Arm TMS",(5),0,05,1);
 SetParameters%();
 Newsflash("Arm TMS",(rTime-10),0,05,0);
-'waitTime:=View(CRRdata%).MaxTime();
+'waitTime:=View(cVAdata%).MaxTime();
 'yield(3);
 'SetParameters%();
 'yield(1);
@@ -1161,42 +1179,56 @@ endif;
 if ((Protocol$ = "find m-wave")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(mWaveThreshData%).FileSaveAs(print$("%s%s", fName$, "_Mwave"), -1);
+    docase
+    case Muscle$ = "Biceps" then
+        View(mWaveThreshData%).FileSaveAs(print$("%s%s_BicepsMwave", fName$), -1);
+    case Muscle$ = "Triceps" then
+        View(mWaveThreshData%).FileSaveAs(print$("%s%s_TricepsMwave", fName$), -1);
+    case Muscle$ = "MP Stim" then
+        View(mWaveThreshData%).FileSaveAs(print$("%s%s_MP_stim", fName$), -1);
+    endcase;
   FileClose(-1,0);
   ButtonDisable% := 0;
 endif;
 if ((Protocol$ = "REC m-wave")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(mMaxData%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
+  View(mMaxData%).FileSaveAs(print$("%s%s_mMax", fName$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "REC_MVC")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(MVCData%).FileSaveAs(print$("%s%s", fName$, "_MVC"), -1);
+  View(MVCData%).FileSaveAs(print$("%s%s_MVC", fName$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "find rMT")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(findrMTdata%).FileSaveAs(print$("%s%s", fName$, "_rMTlocating"), -1);
+  View(findrMTdata%).FileSaveAs(print$("%s%s_rMTlocating", fName$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
-if ((Protocol$ = "CRR")) then
+if ((Protocol$ = "cVA")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(CRRData%).FileSaveAs(print$("%s%s", fName$, "_CRR"), -1);
+  docase
+  case cVA$ = "Arm Posture" then
+    View(cVAData%).FileSaveAs(print$("%s%s_ArmPosture_cVA", fName$), -1);
+  case cVA$ = "Paired Pulse" then
+    View(cVAData%).FileSaveAs(print$("%s%s_PP_cVA", fName$), -1);   
+  case cVA$ = "Cutaneous Stim" then
+    View(cVAData%).FileSaveAs(print$("%s%s_CS_cVA", fName$), -1);
+endcase
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "Recruitment Curve")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(Data%).FileSaveAs(print$("%s%s", fName$, "_RC"), -1);
+  View(Data%).FileSaveAs(print$("%s%s_RC", fName$), -1);
   FileClose(-1,0);
   ButtonDisable% := 0;
 endif;
@@ -1300,9 +1332,9 @@ ArrConst(RestTwitch[],curTwitch);
     if TwitchTrial% = 9 then
       'ArrSum(VA_Arr[0:10],avgVA);
       SampleStop();
-      var fName$, fd%;
-      fName$ := View(pVAdata%).FileName$(3);
-      View(pVAdata%).FileSaveAs(print$("%s%s", fName$, "_pVA_Twitch_Data"), -1, 0, "Save analysis as...");
+      var fd%;
+      'fName$ := View(pVAdata%).FileName$(3);
+      View(pVAdata%).FileSaveAs(print$("%s%s_pVA", fName$), -1, 0, "Save analysis as...");
       fd% := FileNew(1);
       if (fd% < 0) then
         printlog("Could not open text file to save data, printing to log window.\n");
@@ -1510,28 +1542,28 @@ if ((Protocol$ = "Recruitment Curve")) then
 endif;
 
 '----------------------------------------------------------------------------------------------------------------------------------------------------'
-'----------------------------------------------------------------CRR Idle Functions------------------------------------------'
+'----------------------------------------------------------------cVA Idle Functions------------------------------------------'
 '----------------------------------------------------------------------------------------------------------'
-if ((Protocol$ = "CRR")) then
-  if (CRRdata%>=0) then
-    FrontView(CRRdata%);
-    if (View(CRRdata%).Maxtime() - TMSlastCommandTime > 0.5) then
+if ((Protocol$ = "cVA")) then
+  if (cVAdata%>=0) then
+    FrontView(cVAdata%);
+    if (View(cVAdata%).Maxtime() - TMSlastCommandTime > 0.5) then
       TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
     endif;
         if ready$ = "First Time" then
-            if view(CRRdata%).Maxtime() - ReadyTime > 2 then
+            if view(cVAdata%).Maxtime() - ReadyTime > 2 then
                 SetParameters%();
             endif;
         endif;
 
-    curTime := view(CRRdata%).Maxtime();
-    ForceFeedbackLevel:=view(CRRdata%).ChanMeasure(5,11,curTime-.2,curTime); 'or as RMS amp over the last 200ms
+    curTime := view(cVAdata%).Maxtime();
+    ForceFeedbackLevel:=view(cVAdata%).ChanMeasure(5,11,curTime-.2,curTime); 'or as RMS amp over the last 200ms
     ArrConst(View(ForceFeedbackBarGraph%).[:1],ForceFeedbackLevel);
     DrawAll();
 '-------------------------------------------------------
 ' Monitor Force levels and do Feedback display colouring
 '-------------------------------------------------------
-    EMGlvl:=view(CRRdata%).ChanMeasure(5,11,curTime-.2,curTime);
+    EMGlvl:=view(cVAdata%).ChanMeasure(5,11,curTime-.2,curTime);
 
     docase
     case ForceFeedbackLevel < LowerEMGLimit then
@@ -1557,10 +1589,10 @@ if ((Protocol$ = "CRR")) then
             armTMS%();
             TMSstatus$:= "Arming";
           case TMSstatus$ = "Arming" then
-            waitforTMStoArm:= view(CRRdata%).Maxtime();
+            waitforTMStoArm:= view(cVAdata%).Maxtime();
             TMSstatus$:= "Armed";
           case TMSstatus$ = "Armed" then
-            if (View(CRRdata%).Maxtime() - waitforTMStoArm > 2) then
+            if (View(cVAdata%).Maxtime() - waitforTMStoArm > 2) then
                 if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
                   yield(0);
                   counter%+=1;
@@ -1577,16 +1609,16 @@ if ((Protocol$ = "CRR")) then
           endcase;
       endif;
         if MVClevel$ = "At Rest" then
-            if WaitLoop = 1 then   'Wait loop to ensure Magstim has time to arm/charge before firing stimulus
-                    TimeOne:=view(CRRdata%).Maxtime();
-                    WaitLoop:=2;
+            if WaitLoop% = 1 then   'Wait loop to ensure Magstim has time to arm/charge before firing stimulus
+                    TimeOne:=view(cVAdata%).Maxtime();
+                    WaitLoop%:=2;
                 endif;
-                if waitLoop = 2 then
-                    TimeTwo:=view(CRRdata%).Maxtime();
-                    if TimeTwo - TimeOne < 5 then
+                if waitLoop% = 2 then
+                    TimeTwo:=view(cVAdata%).Maxtime();
+                    if TimeTwo - TimeOne < 4 then
                         yield(0)
                     else
-                        WaitLoop:=0;
+                        WaitLoop%:=0;
                 endif;
         if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
           yield(0);
@@ -1638,6 +1670,7 @@ if ((Protocol$ = "CRR")) then
      endif;      
     endif;
   endif;
+    endif;
     endif;
     endif;
     'endif;
@@ -2332,7 +2365,7 @@ end
 proc ANALYZErc(curPeakToPeak)
 '	rcPeakToPeak[numStim%-1] := curPeakToPeak;	
 	var stim%;
-	stim% := RCIarray[RCstimCount%-1];
+	stim% := RCIarray%[RCstimCount%-1];
 docase
 case stim% = RCintensityA% then
     rcPeakToPeak[0][countA%]:= curPeakToPeak;
@@ -2366,11 +2399,11 @@ var coef[3], maxSlope, maxInt;
 if RCstimCount% = 54 then
     Protocol$ := "Stopped";
     SampleStop();
-    View(Data%).FileSaveAs(print$("%s%s", fName$, "_RCurve"), -1);
+    View(Data%).FileSaveAs(print$("%s%s_RCurve", fName$), -1);
     ANALYZEprintResults(maxSlope, maxInt); 'This won't work with current variables (Coef[],maxSlope, maxInt)
     FileClose(0, 1);
 else
-    nextStim%:=RCIarray[RCstimCount%];
+    nextStim%:=RCIarray%[RCstimCount%];
     TMSSetIntensity%(1, nextStim%);
     updateNecessary%:= 0;
 endif;
@@ -2649,8 +2682,8 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 	View(LogHandle());
 	EditSelectAll();						'Select all text in log view
 	EditClear();							'Delete it
-	var fName$, fd%;
-	fName$ := View(data%).FileName$(3);
+	var fd%;
+	'fName$ := View(data%).FileName$(3);
 	fd% := FileNew(1);
 	if (fd% < 0) then
 		printlog("Could not open text file to save data, printing to log window.\n");
@@ -2666,11 +2699,11 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 			View(fd%).print("%d\t%f\n", i%, rcPeakToPeak[i%][j%]);
 		next;
 		View(fd%).print("%s\t%f\n", print$("%dmedian", i%), ANALYZEcalcMedian(i%));
-        View(fd%).print("%s\t%f\n", print$("%davg", i%)   , ANALYZEcalcAvg(i%));
-        View(fd%).print("%s\t%f\n", print$("%dintensity", i%)   ,RCintensity%[i%])
+        View(fd%).print("%s\t%f\n", print$("%davg", i%), ANALYZEcalcAvg(i%));
+        View(fd%).print("%s\t%f\n", print$("%dintensity", i%), RCintensity%[i%]);
     next;
     for i% := 0 to 54 do 
-        View(fd%).print("%s\t%f\n", print$("%d", i%)   ,RCIarray%[i%])
+        View(fd%).print("%s\t%f\n", print$("%d", i%), RCIarray%[i%]);
     next;
 	'View(fd%).print("coefA\t%f\n", coef[0]);
 	'View(fd%).print("coefB\t%f\n", coef[1]);
@@ -2679,7 +2712,7 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 	'View(fd%).print("MaxSlopeInt\t%f\n", maxInt);
 	var ret%;	
 	if (fd% >= 0) then 
-		ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_RC_analyze.txt"), 1, 0, "Save analysis as...");
+		ret% := View(fd%).FileSaveAs(print$("%s%s_RC_analyze.txt", fName$), 1, 0, "Save analysis as...");
 		if (ret% < 0) then
 			View(fd%);
 			FileClose(0, -1);
@@ -2858,7 +2891,7 @@ RandomizeRC%(); 'create randomized order of stimulus intensities for RC
 SampleStart();
 
 Wait%();
-TMSSetIntensity%(1, RCIarray[0]);
+TMSSetIntensity%(1, RCIarray%[0]);
 
 return 1;
 end;
@@ -2867,7 +2900,7 @@ var pick%;
     pick%:= round(rand()*10)+1;
 
 if place% = 0 then      'set first intensity to 1 because first instance does not fire
-    RCIarray[0]:= 1;
+    RCIarray%[0]:= 1;
 endif
 
 if place% < 54 then 
@@ -2877,7 +2910,7 @@ docase
        RandomizeRC%();
   case pick% = 2 then
     if intA% < 6 then
-      RCIarray[place%]:= RCintensityA%;
+      RCIarray%[place%]:= RCintensityA%;
         intA%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2885,7 +2918,7 @@ docase
     endif;
   case pick% = 3 then
     if intB% < 6 then
-      RCIarray[place%]:= RCintensityB%;
+      RCIarray%[place%]:= RCintensityB%;
         intB%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2893,7 +2926,7 @@ docase
     endif;
     case pick% = 4 then
     if intC% < 6 then
-      RCIarray[place%]:= RCintensityC%;
+      RCIarray%[place%]:= RCintensityC%;
         intC%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2901,7 +2934,7 @@ docase
     endif;        
     case pick% = 5 then
     if intD% < 6 then
-      RCIarray[place%]:= RCintensityD%;
+      RCIarray%[place%]:= RCintensityD%;
         intD%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2909,7 +2942,7 @@ docase
     endif;          
     case pick% = 6 then
     if intE% < 6 then
-      RCIarray[place%]:= RCintensityE%;
+      RCIarray%[place%]:= RCintensityE%;
         intE%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2917,7 +2950,7 @@ docase
     endif;         
     case pick% = 7 then
     if intF% < 6 then
-      RCIarray[place%]:= RCintensityF%;
+      RCIarray%[place%]:= RCintensityF%;
         intF%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2925,7 +2958,7 @@ docase
     endif;         
     case pick% = 8 then
     if intG% < 6 then
-      RCIarray[place%]:= RCintensityG%;
+      RCIarray%[place%]:= RCintensityG%;
         intG%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2933,7 +2966,7 @@ docase
     endif; 
     case pick% = 9 then
     if intH% < 6 then
-      RCIarray[place%]:= RCintensityH%;
+      RCIarray%[place%]:= RCintensityH%;
         intH%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2941,7 +2974,7 @@ docase
     endif;         
     case pick% = 10 then
     if intI% < 6 then
-      RCIarray[place%]:= RCintensityI%;
+      RCIarray%[place%]:= RCintensityI%;
         intI%+=1;
         place%+=1;
         RandomizeRC%();    
@@ -2954,38 +2987,58 @@ endif;
 return 1;
 end
 func RCmark()
-	var stim%;
-	stim% := RCIarray[RCstimCount%-1];
+var stim%;
+var cd%[1];
+	stim% := RCIarray%[RCstimCount%-1];
 docase
 case stim% = RCintensityA% then
-    SampleText("1", -1, 1);
+    cd%[0] := 1;
+    SampleText("1", -1, cd%[]);
 case stim% = RCintensityB% then
-    SampleText("2", -1, 2);
+    cd%[0] := 2;
+    SampleText("2", -1, cd%[]);
 case stim% = RCintensityC% then
-    SampleText("3", -1, 3);
+    cd%[0] := 3;
+    SampleText("3", -1, cd%[]);
 case stim% = RCintensityD% then
-    SampleText("4", -1, 4);
+    cd%[0] := 4;
+    SampleText("4", -1, cd%[]);
 case stim% = RCintensityE% then
-    SampleText("5", -1, 5);
+    cd%[0] := 5;
+    SampleText("5", -1, cd%[]);
 case stim% = RCintensityF% then
-    SampleText("6", -1, 6);
+    cd%[0] := 6;
+    SampleText("6", -1, cd%[]);
 case stim% = RCintensityG% then
-    SampleText("7", -1, 7);
+    cd%[0] := 7;
+    SampleText("7", -1, cd%[]);
 case stim% = RCintensityH% then
-    SampleText("8", -1, 8);
+    cd%[0] := 8;
+    SampleText("8", -1, cd%[]);
 case stim% = RCintensityI% then
-    SampleText("9", -1, 9);    
+    cd%[0] := 9;
+    SampleText("9", -1, cd%[]); 
 endcase;
 end;
 func cVAmark()
+var cd%[1];
 docase
 case MVClevel$ = "At Rest" then
-    SampleText("At_Rest", -1, 1);
+    cd%[0] := 1;
+    SampleText("At_Rest", -1, cd%[]);
 case MVClevel$ = "50 Percent" then
-    SampleText("50_Percent", -1, 2);
+    cd%[0] := 2;
+    SampleText("50_Percent", -1, cd%[]);
 case MVClevel$ = "75 Percent" then
-    SampleText("75_Percent", -1, 3);
+    cd%[0] := 3;
+    SampleText("75_Percent", -1, cd%[]);
 case MVClevel$ = "100 Percent" then
-    SampleText("100_Percent", -1, 4);
+    cd%[0] := 4;
+    SampleText("100_Percent", -1, cd%[]);
 endcase;
+end;
+func MPstim%() 'Points to FindMwave function, but skips muscle dialog
+skip%:= 1;
+FindMwave%();
+skip%:=0;
 end;
