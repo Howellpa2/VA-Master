@@ -553,7 +553,7 @@ if (stimcount% > 2) then
                     FileClose();
                 endif;
             endif;
-            View(MwaveThreshdata%).FileSaveAs(print$("%s%s", fName$, "_mMax"), -1);
+            View(MwaveThreshdata%).FileSaveAs(print$("%s", fName$, "_mMax"), -1);
             FileClose(-1,0);
             ButtonDisable%:= 0;
         endif;
@@ -603,7 +603,7 @@ for i%:=0 to 4 do
     Newsflash("Well that was stimulating!",10,0,05,1);                              'Trial rest duration
 next;
     SampleStop();
-    View(mMaxData%).FileSaveAs(print$("%s%s_mMax", fName$), -1);
+    View(mMaxData%).FileSaveAs(print$("%s_mMax", fName$), -1);
     FileClose(-1,0);
     ButtonDisable% := 0;
 return 1;                    ' and stay in current toolbar
@@ -660,7 +660,7 @@ ChanProcessAdd(5, 8, 0.2); 'add a 200ms RMS averaging filter
 Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
 MVCstartTime[Trial%]:=View(MVCdata%).Maxtime();
 sTime:=View(MVCdata%).Maxtime();
-CursorNew((sTime - 1),0);
+CursorNew((sTime - 1),1);
 return 1;                    ' and stay in current toolbar
 end;
 
@@ -668,13 +668,16 @@ func MVCrest%()
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ''''''''''''''sub func to use active cursor for MVC value search'''''''''''''''''
-CursorNew(cursor(0)+1,1);
-CursorActive(1, 1, 5, "Cursor(0)", "Cursor(0)+7");
-CursorSearch(1);
-var ActvCursorTime:= Cursor(1);
-docase
-case Trial% = 0 then
-    activeMVC_one:=ChanMeasure(5, 2, ActvCursorTime-.25, ActvCursorTime+.25);
+var ActvCursorTime;
+CursorDelete(-1);                   'delete all cursors
+CursorNew((sTime - 1),1);           'update cursor(1) position to new start time
+CursorNew(cursor(1)+1,2);           'update cursor(2) position to 1 sec after cursor(1)
+CursorActive(2, 1, 5, "Cursor(1)", "Cursor(1)+7"); 'make cursor(2) search for max value on chan 5 within 7 seconds of cursor(1)
+CursorSearch(2);                    'start cursor 2 search
+ActvCursorTime:= Cursor(2);         'get cursor(2) time
+docase                              'measure average Y value on channel 5 over 500ms around cursor(2)
+case Trial% = 0 then                'three separate variables for max value
+    activeMVC_one:=ChanMeasure(5, 2, ActvCursorTime-.25, ActvCursorTime+.25); 
 case Trial% = 1 then
     activeMVC_two:=ChanMeasure(5, 2, ActvCursorTime-.25, ActvCursorTime+.25);
 case Trial% = 2 then
@@ -689,12 +692,11 @@ endcase;
     Newsflash("Prepare for next contraction",2,0,05,1);
     Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
     sTime:=View(MVCdata%).Maxtime();
-    CursorNew((sTime - 1),0); 'update cursor(0) position to new start time
   endif;
   if Trial% = 2 then
     Protocol$:="Stopped";    
     SampleStop();
-    View(MVCData%).FileSaveAs(print$("%s%s_MVC", fName$), -1);
+    View(MVCData%).FileSaveAs(print$("%s_MVC", fName$), -1);
     FileClose(-1,0);
   endif;
 return 1;                    ' and stay in current toolbar
@@ -1181,11 +1183,11 @@ if ((Protocol$ = "find m-wave")) then
   Protocol$ := "Stopped";
     docase
     case Muscle$ = "Biceps" then
-        View(mWaveThreshData%).FileSaveAs(print$("%s%s_BicepsMwave", fName$), -1);
+        View(mWaveThreshData%).FileSaveAs(print$("%s_BicepsMwave", fName$), -1);
     case Muscle$ = "Triceps" then
-        View(mWaveThreshData%).FileSaveAs(print$("%s%s_TricepsMwave", fName$), -1);
+        View(mWaveThreshData%).FileSaveAs(print$("%s_TricepsMwave", fName$), -1);
     case Muscle$ = "MP Stim" then
-        View(mWaveThreshData%).FileSaveAs(print$("%s%s_MP_stim", fName$), -1);
+        View(mWaveThreshData%).FileSaveAs(print$("%s_MP_stim", fName$), -1);
     endcase;
   FileClose(-1,0);
   ButtonDisable% := 0;
@@ -1193,21 +1195,21 @@ endif;
 if ((Protocol$ = "REC m-wave")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(mMaxData%).FileSaveAs(print$("%s%s_mMax", fName$), -1);
+  View(mMaxData%).FileSaveAs(print$("%s_mMax", fName$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "REC_MVC")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(MVCData%).FileSaveAs(print$("%s%s_MVC", fName$), -1);
+  View(MVCData%).FileSaveAs(print$("%s_MVC", fName$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "find rMT")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(findrMTdata%).FileSaveAs(print$("%s%s_rMTlocating", fName$), -1);
+  View(findrMTdata%).FileSaveAs(print$("%s_rMTlocating", fName$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
@@ -1216,11 +1218,11 @@ if ((Protocol$ = "cVA")) then
   Protocol$ := "Stopped";
   docase
   case cVA$ = "Arm Posture" then
-    View(cVAData%).FileSaveAs(print$("%s%s_ArmPosture_cVA", fName$), -1);
+    View(cVAData%).FileSaveAs(print$("%s_ArmPosture_cVA", fName$), -1);
   case cVA$ = "Paired Pulse" then
-    View(cVAData%).FileSaveAs(print$("%s%s_PP_cVA", fName$), -1);   
+    View(cVAData%).FileSaveAs(print$("%s_PP_cVA", fName$), -1);   
   case cVA$ = "Cutaneous Stim" then
-    View(cVAData%).FileSaveAs(print$("%s%s_CS_cVA", fName$), -1);
+    View(cVAData%).FileSaveAs(print$("%s_CS_cVA", fName$), -1);
 endcase
   ButtonDisable% := 0;
   FileClose(-1,0);
@@ -1228,7 +1230,7 @@ endif;
 if ((Protocol$ = "Recruitment Curve")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(Data%).FileSaveAs(print$("%s%s_RC", fName$), -1);
+  View(Data%).FileSaveAs(print$("%s_RC", fName$), -1);
   FileClose(-1,0);
   ButtonDisable% := 0;
 endif;
@@ -1334,7 +1336,7 @@ ArrConst(RestTwitch[],curTwitch);
       SampleStop();
       var fd%;
       'fName$ := View(pVAdata%).FileName$(3);
-      View(pVAdata%).FileSaveAs(print$("%s%s_pVA", fName$), -1, 0, "Save analysis as...");
+      View(pVAdata%).FileSaveAs(print$("%s_pVA", fName$), -1, 0, "Save analysis as...");
       fd% := FileNew(1);
       if (fd% < 0) then
         printlog("Could not open text file to save data, printing to log window.\n");
@@ -2399,7 +2401,7 @@ var coef[3], maxSlope, maxInt;
 if RCstimCount% = 54 then
     Protocol$ := "Stopped";
     SampleStop();
-    View(Data%).FileSaveAs(print$("%s%s_RCurve", fName$), -1);
+    View(Data%).FileSaveAs(print$("%s_RCurve", fName$), -1);
     ANALYZEprintResults(maxSlope, maxInt); 'This won't work with current variables (Coef[],maxSlope, maxInt)
     FileClose(0, 1);
 else
@@ -2712,7 +2714,7 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 	'View(fd%).print("MaxSlopeInt\t%f\n", maxInt);
 	var ret%;	
 	if (fd% >= 0) then 
-		ret% := View(fd%).FileSaveAs(print$("%s%s_RC_analyze.txt", fName$), 1, 0, "Save analysis as...");
+		ret% := View(fd%).FileSaveAs(print$("%s_RC_analyze.txt", fName$), 1, 0, "Save analysis as...");
 		if (ret% < 0) then
 			View(fd%);
 			FileClose(0, -1);
@@ -2987,6 +2989,7 @@ endif;
 return 1;
 end
 func RCmark()
+if RCstimCount% >= 1 then
 var stim%;
 var cd%[1];
 	stim% := RCIarray%[RCstimCount%-1];
@@ -3018,7 +3021,8 @@ case stim% = RCintensityH% then
 case stim% = RCintensityI% then
     cd%[0] := 9;
     SampleText("9", -1, cd%[]); 
-endcase;
+    endcase;
+endif;
 end;
 func cVAmark()
 var cd%[1];
@@ -3036,6 +3040,7 @@ case MVClevel$ = "100 Percent" then
     cd%[0] := 4;
     SampleText("100_Percent", -1, cd%[]);
 endcase;
+
 end;
 func MPstim%() 'Points to FindMwave function, but skips muscle dialog
 skip%:= 1;
