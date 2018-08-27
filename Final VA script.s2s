@@ -1,203 +1,152 @@
 'Debug("");
+
 '----------------------------------------------------------------------------------------------------------------------
 ' Global Variables
 '----------------------------------------------------------------------------------------------------------------------
+
+'-------General set-up/status variables-----------------------------------------------------
 var Protocol$:="Stopped";
 var TMSstatus$:= "Not Armed";
-var ready$:="Yes";
-var resultViewH%;
-var curChan% :=1;
-var BicepEMGchan% := 1;
-var cScale,cOffset;
-var MwaveThreshdata%:= -1;
-var findrMTdata%:=-1;
-var mMaxData%:=-1;
-var MVCdata%:=-1;
-var cVAData%:=-1;
-var pVAdata%:=-1;
-var data%;
-var MwaveBarGraph%:=-1;
-var ForceFeedbackBarGraph%:=-1;
-var rMTBarGraph%:=-1;
-var rcBarGraph%:=-1;
-var EMGlvl;
-var ForceFeedbackLevel;
-var Trial%:=0;
-var sTime := 0;
-var eTime,rTime,waitforTMStoArm,waitTime;
-var curTime;
-var TMSlastCommandTime,ReadyTime;
-var MVCstartTime[6];
-var MVCendTime[6];
-var currentTrigTime:=-1;
-var curHreflex;
-var updateNecessary%:=0;
-var stimcount%:=0;
-var avgPPdiff;
-var PPArr[500];
-var PPdiff[500];
-var PercentDiff[500];
-var AvgBicep[5500];
-var BicepRMS[5500];
-var FxArray[5500];
-var FyArray[5500];
-var FzArray[5500];
-var MxArray[5500];
-var MyArray[5500];
-var MzArray[5500];
-var TrialBicepMVC[6][1];
-var TrialFxMVC[6][1];
-var TrialFyMVC[6][1];
-var TrialFzMVC[6][1];
-var TrialMxMVC[6][1];
-var TrialMyMVC[6][1];
-var TrialMzMVC[6][1];
-var avgFMarray[1][6];
-var activeMVC_one,activeMVC_two,activeMVC_three;
-var activeFxAvg;
-var avgFxMVC;
-var avgFyMVC;
-var avgFzMVC;
-var avgMxMVC;
-var avgMyMVC;
-var avgMzMVC;
-var avgBicepMVC:=4.4;
-var UpperEMGLimit,LowerEMGLimit;
-var rNum%:=2;
-var TMSintensityA;
-var counter%:=0;
-var prevPeakToPeak:= -2;
-var curPeakToPeak:=0;
-var newestEvent;
-var jitter,interStimulusIntervalMin,nextTMSFireTime,lastTMSFireTime,curStimOutput%,ISI;
-var highPassFilter[511];
-var fName$;
-const TrigEventChan% := 6;
-var t$:="t";
-var d$:="d";
-var a$:="a";
-var u$:="u";
-var i$:="i";
-var o$:="o";
-var p$:="p";
-var s$:="s";
-var PreviousStim$;
-var MVClevel$;
-var DigitimerPulse$;
-var TMSpulse$;
-var numZero%,numTwo%,numThree%,numFour%,numFive%,numSix%,numSeven%,numEight%,numNine%,numTen%,numEleven%,numTwelve%,numThirteen%,numFourteen%,numFifteen%,numSixteen%;
-var Muscle$;
-var Sensor%;
 var cVA$:="Arm Posture";
+var ready$:="Yes";
+var Muscle$, Sensor%;
+var subjectID$;
+const allow%:=1023; 'supposed to allow the most functionality during idle (see Toolbar() help... "The number is the sum of possible activity codes"
+
+const MagstimSerialPort% := 3; '******* Important variable for troubleshooting code on new computers! ****************************************'   
+'********* If the code does not appear to run at all, you likely do not have the Magstim connected to the correct serial (COM) port. *********'
+'********* If using serial to USB, it must be plugged into the correct USB port. *************************************************************'
+'********* Check Device Manager to find out which COM port is being used. ********************************************************************'
+'*********************************************************************************************************************************************'
+
+'SampleKey() control and marking of Digitimer/Magstim firing
+var t$:="t"; var d$:="d"; var a$:="a"; 'Digitimer specific: "t" and "d" are individual pulses, "a" is 10 pulse train
+var u$:="u"; var i$:="i"; var o$:="o"; var p$:="p"; 'TMS specific not used anymore
+var s$:="s"; 'Fires single TMS pulse during  
+
+'Channel variables
+var curChan%:=1; var BicepEMGchan%:= 1; const TrigEventChan%:= 6;
+var cScale, cOffset;
+
+'Data/results set-up
+var MwaveThreshdata%:= -1; var findrMTdata%:=-1; var mMaxData%:=-1;
+var MVCdata%:=-1; var cVAData%:=-1; var pVAdata%:=-1;
+var MwaveBarGraph%:=-1; var ForceFeedbackBarGraph%:=-1; var rMTBarGraph%:=-1; var rcBarGraph%:=-1;
+var data%:=-1; var resultViewH%; 
+'-------------------------------------------------------------------------------------------
+
+
+'-------Idle related variables--------------------------------------------------------------
+
+'Force feedback
+var EMGlvl, ForceFeedbackLevel;
+
+'TMS and Digitimer control 
+var Trial%:=0; var stimcount%:=0;
+var sTime := 0; var currentTrigTime:=-1;
+var eTime, rTime, waitforTMStoArm, waitTime, curTime, ReadyTime; 
+var TMSlastCommandTime; 'Important for ensuring constant communication between Magstim and Spike2
+var MVCstartTime[6]; var MVCendTime[6];
+var updateNecessary%:=0; var newestEvent;
+var WaitLoop%:= 1; var TimeOne,TimeTwo; 'Ensures Magstim has time to charge during "At Rest" cVA stimulations
+'-------------------------------------------------------------------------------------------
+
+
+'-------Analysis related variables-----------------------------------------------------------
+
+'Find M-wave/MP max
+var avgPPdiff; var PPArr[500]; var PPdiff[500]; var PercentDiff[500]; var PDC%;
+var prevPeakToPeak:= -2; var curPeakToPeak:=0;
+var counter%:=0; 
+var skip%:= 0; 'For skipping dlg box prompt during MP stimulation
+'pVA variables
 var MVCtwitchAmp,MVCtwitchPP,getTwitch%,TwitchTrial%,RestingTwitchIndex%,RestingTwitch,RestingTwitchPP;
-var MVCtwitchArr[10];
-var RestingTwitchArr[10];
-var VA_Arr[10];
+var MVCtwitchArr[10]; var RestingTwitchArr[10]; var VA_Arr[10];
+'-------------------------------------------------------------------------------------------
+
+
+'-------MVC related variables---------------------------------------------------------------
+
+'MVC arrays (might be able to make these local)
+var AvgBicep[5500]; var BicepRMS[5500]; 
+var FxArray[5500]; var FyArray[5500]; var FzArray[5500];
+var MxArray[5500]; var MyArray[5500]; var MzArray[5500];
+'Individual MVC trial arrays (must be global, but I think should be [3][1])
+var TrialBicepMVC[6][1]; var avgFMarray[1][6];
+var TrialFxMVC[6][1]; var TrialFyMVC[6][1]; var TrialFzMVC[6][1];
+var TrialMxMVC[6][1]; var TrialMyMVC[6][1]; var TrialMzMVC[6][1];
+var avgFxMVC, avgFyMVC, avgFzMVC;
+var avgMxMVC, avgMyMVC, avgMzMVC;
+'Variables for active cursor method of MVC detection
+var activeMVC_one, activeMVC_two, activeMVC_three, activeFxAvg;
+
+'Basis for control of effort levels during pVA and cVA
+var avgBicepMVC:=5.5;  
+var UpperEMGLimit, LowerEMGLimit;
+var MVClevel$;
+'--------------------------------------------------------------------------------------------
+
+
+'-------Recruitment Curve variables----------------------------------------------------------
+var rMT%:= 0;
 var RCintensityA%,RCintensityB%,RCintensityC%,RCintensityD%,RCintensityE%,RCintensityF%,RCintensityG%,RCintensityH%,RCintensityI%;
 var intA%,intB%,intC%,intD%,intE%,intF%,intG%,intH%,intI%,place%,nextStim%;
 var countA%,countB%,countC%,countD%,countE%,countF%,countG%,countH%,countI%;
-var RCIarray%[55];
-var rcPeakToPeak[9][6];
-var RCintensity%[9];
 var RCstimTime,RCstimCount%;
-var PDC%;
-var skip%:= 0;
-var WaitLoop%:= 1;
-var TimeOne,TimeTwo;
-'----------------------------------------------------------------------------------------------------------------------
-' Fix that ^^^^^^^^^^^^^^^^^^
-'----------------------------------------------------------------------------------------------------------------------
-' basically lets us fire at a different intensity during the session
-const  maxEpochs% := 1000;
-var stimulusIntensities%[maxEpochs%];
-var numEpochs% := 0;
-'rc stuff
-var rcStartIntensity%;
-var rcEndIntensity%;
-var rcNumLevels% := 7;
-'var rcPeakToPeak[maxEpochs%];
-' TMS control options
-const TMSMAGSTIM200% := 0;
-const TMSMAGSTIMOLD% := 1;
-var   TMSwhichMagstim% := TMSMAGSTIM200%;
-const TMSMAGSTIM200SPORT% := 3;    ' Check Device Manager under the hardware tab of My Computer to find out
-                        ' which COM port is being used.  If it is connected to the main COM port
-                        ' of the computer, then it will be COM 1.
-' Possible protocols
-const RMTPROTOCOL%:=1;
-const CSPPROTOCOL%:=2;
-const RCPROTOCOL%:=3;
-const FREEACQUIREPROTOCOL%:=4;
-const PPPROTOCOL% := 5;
-const NOPROTOCOL%:=0;
-var currentProtocol%:=NOPROTOCOL%;
-'file saving options
-var fileFreeAcquireNo% := 0;
-var fileRMTNo% := 0;
-var fileRCNo% := 0;
-var fileCSPNo% := 0;
-var filePPNo% := 0;
-var subjectID$;
+var RCIarray%[55]; var rcPeakToPeak[9][6]; var RCintensity%[9];
+'--------------------------------------------------------------------------------------------
 
-var bestPestThreshold:=.05;
 
-var lastStimOutput%;
-var numStim%;
-var maxOutputStim%:=100;
-var stopIfMTRepeats%:=1;
-var bestPestLowBound%:=20;
-var bestPestHighBound%:=80;
-var bestPestStartTime := .03;
-var bestPestEndTime := .1;
-var bestPestSpread%:=7;
-var interStimulusIntervalMax:=5;
-var interStimulusInterval:=3.5;
-var startUp%:=1;
-Var LastLook; '''''''''''
+'-------Randomization and cVA set-up---------------------------------------------------------
+var rNum%:=2;
+var numZero%,numTwo%,numThree%,numFour%,numFive%;
+var numSix%,numSeven%,numEight%,numNine%,numTen%;
+var numEleven%,numTwelve%,numThirteen%,numFourteen%,numFifteen%,numSixteen%;
+'--------------------------------------------------------------------------------------------
 
-'general options
-var doHPFilter%;
-var do60CycleFilter% := 1;
-var doTMSArtifactFilter% := 1;
-var FILTERexpFilterStart := .01;
-var FILTERexpFilterEnd   := .1;
+
+'-------Non-idle TMS/Magstim specific variables ---------------------------------------------
+
+'Variables left over from MUSC script
+var jitter,interStimulusIntervalMin,nextTMSFireTime,lastTMSFireTime,curStimOutput%,ISI; 
+var highPassFilter[511];
+
+var TMSintensityA;'changes intensity of first pulse
+var TMSpulse$;'changes ISI for cutaneous stim cVA
+
+'--------------------------------------------------------------------------------------------
+
+
+'----------------------------------'
+'Variables not currently being used
+'var curHreflex; 
+'var PreviousStim$;
+var DigitimerPulse$; 'technically still being used, but I think it can be removed
+'----------------------------------'
+
+
+'--------------------------------------------------------------------------------------------
+'-------MUSC specific variables (working on getting rid of these)----------------------------
+
+
+'Filtering
 var FILTERexpFilterCursorStart%;
 var FILTERexpFilterCursorEnd%;
-var doBestPest%;
-var doAutoControl% := 1;
-
-var doRTMS%:=0;
-
-var rMT% := 0;
-' various options
-var contractionMonitor% := 0;
-var contractionRecord% := 0;
-var contractionRecordBins% := 0;
-var contractionInRange% := 0;
-const CONTRACTIONMAXBINS% := 4;
-const CONTRACTIONCOLORLOW% := 13;
-const CONTRACTIONCOLORHIGH% := 16;
-const CONTRACTIONCOLORON% := 14;
-var contractionLowBound;
-var contractionHighBound;
-var contractionLastCheckTime := -1;
-var contractionSegLength := .25;   
-var contractionSumActivity := 0;
-var contractionTolerance := .2;
-var contractionRecordDone% := 0;
 
 'analysis variables
 const maxIntensities% := 101;
 const maxTrials% := 100;
-var intensityDist%[maxIntensities%];
 var numPerIntensity%[maxIntensities%];
 var valsPerIntensity[maxIntensities%][maxTrials%];
-var totalIntensities%;
 const FITDATAAVG% := 0;
 const FITDATAMEDIAN% := 1;
 const FITDATAALL% := 2;
 var FITuseData% := FITDATAMEDIAN%;
-if (TMSOpenConnection%(TMSMAGSTIM200SPORT%) < 0) then
+'--------------------------------------------------------------------------------------------
+'----------End of Global Variables-----------------------------------------------------------------------------------------------------
+
+'Begining of code functionality
+if (TMSOpenConnection%(MagstimSerialPort%) < 0) then
   printlog("Error opening connection to Magstim\n");
   Halt;
 endif;
@@ -205,7 +154,7 @@ endif;
 
 INITIALIZESubjectData();
 proc INITIALIZESubjectData()
-fName$ := Input$("Enter subject ID", "");
+subjectID$ := Input$("Enter subject ID", "");
 'FilePathSet("", 0);
 'SampleAutoFile(1);
 end;
@@ -221,47 +170,13 @@ end
 '----------------------------------------------------------------------------------------------------------------------
 ' Set up the Toolbar
 '----------------------------------------------------------------------------------------------------------------------
-const allow%:=1023;
+
 var ButtonDisable%:=0;              ' Global var to hold the value of the toobar buttons which are disabled
 var toolText$;                      ' Holds the text string to appear in the toolbar
 
 cVAToolbar();                       'Calls toolbar
 Halt;
-proc SetDefaultOpts()
-	contractionMonitor% := 0;
-	contractionLastCheckTime := -1;
-	contractionRecordDone% := 0;
-	contractionRecordBins% := 0;
-	contractionInRange% := 0;
-	contractionSumActivity := 0;
-end;
-func RCtoolbar%()
-	ToolbarClear();
-	SetDefaultOpts();
 
-	'ToolbarSet(1, "r&MT", doRMT%);
-	'ToolbarSet(2, "&Acquire", doFreeAcquire%);
-	'ToolbarSet(3, "&CSP", doCSP%);
-	ToolbarSet(4, "&RC", doRC%);
-	'ToolbarSet(5, "&PP", doPP%);
-	Toolbar("Select procedure", 1023);
-	'New%();
-	cVAToolbar();
-end;
-func Start%()							'If "Start" is pressed
-	SampleStart();							'Start sampling
-	if (doAutoControl%) then
-		armTMS%();
-
-	endif;
-'	ToolbarEnable(NEWBUTTONID%,1);						'Enable "Sample stop" button
-'	ToolbarEnable(STARTBUTTONID%,0);						'Disable "Sample start" button
-'	ToolbarEnable(QUITBUTTONID%,0);						'Disable "Quit" button
-'	ToolbarEnable(PROTOCOLBUTTONID%,0);						'Disable "Protocol" button
-	ToolbarText("Press SAMPLE STOP to stop sampling");
-	return 1;								'Stay with toolbar
-
-end;
 proc cVAToolbarButtons()               ' Buttons for Toolbar (they're self explanitory for the most part)
 ToolbarClear();
 ToolbarSet(0,"",Idle%);                  'Call Idle%() whenever there is free time
@@ -271,7 +186,7 @@ ToolbarSet(9,"Record M-max", RecMwave%);
 ToolbarSet(8,"Find MVC", MVC%);
 ToolbarSet(7,"MP Stim", MPstim%);
 ToolbarSet(6,"pVA", pVA%);
-ToolbarSet(5,"TMS Locator", TMSToolbar%);
+'ToolbarSet(5,"TMS Locator", TMSToolbar%);
 'ToolbarSet(3,"Record rMT", LocateMT%);
 ToolbarSet(4, "RC", actualRC%);'RCtoolbar%);
 ToolbarSet(3,"cVA", cVA%);
@@ -381,9 +296,9 @@ View(MwaveThreshdata%).Window(0,0,60,80);            'Make data window right hal
 'View(MwaveThreshdata%).FiltCalc(3, BinSize(1), highPassFilter[]); 'set the filter
 'View(MwaveThreshdata%).ChanProcessAdd(1, 1, 0.01); 'Channel, 1=Smooth, Time constant (s)
 'View(MwaveThreshdata%).ChanProcessAdd(1, 9, 0.01); 'Channel, 9=Median filter, Time constant (s)
-if which% = 2 then 'dont hide Fz channel
-    ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(9);ChanHide(30);ChanHide(31);ChanHide(32);
-else 'do hide Fz channel
+if Muscle$ = "MP Stim" then 'hide everything but Fz channel
+    ChanHide(1);ChanHide(2);ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(9);ChanHide(30);ChanHide(31);ChanHide(32);
+else 'hide everything but Biceps and Triceps channels
     ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(9);ChanHide(10);ChanHide(30);ChanHide(31);ChanHide(32);
 endif;
 
@@ -405,7 +320,7 @@ case which% = 0 then
     View(MwaveBarGraph%).YRange(1,0,10000);      'Set Y range to match source waveform channel
 case which% = 1 then     
     View(MwaveBarGraph%).YRange(1,0,5000);
-case which% = 2 then     
+case Muscle$ = "MP Stim" then     
     View(MwaveBarGraph%).YRange(1,0,5);
 endcase;    
 View(MwaveBarGraph%).Window(60,0,100,80); 'Make bar graph window right portion of screen
@@ -544,7 +459,7 @@ if (stimcount% > 2) then
                 View(PPvals%).print("%g",PPArr[i%]);
             next;
             if (PPvals% >= 0) then
-                ret% := View(PPvals%).FileSaveAs(print$("%s%s", fName$, "_mWave_PeaktoPeaks.txt"), 1, 0, "Save analysis as...");
+                ret% := View(PPvals%).FileSaveAs(print$("%s%s", subjectID$, "_mWave_PeaktoPeaks.txt"), 1, 0, "Save analysis as...");
                 if (ret% < 0) then
                     View(PPvals%);
                     FileClose(0, -1);
@@ -553,7 +468,7 @@ if (stimcount% > 2) then
                     FileClose();
                 endif;
             endif;
-            View(MwaveThreshdata%).FileSaveAs(print$("%s", fName$, "_mMax"), -1);
+            View(MwaveThreshdata%).FileSaveAs(print$("%s", subjectID$, "_mMax"), -1);
             FileClose(-1,0);
             ButtonDisable%:= 0;
         endif;
@@ -603,7 +518,7 @@ for i%:=0 to 4 do
     Newsflash("Well that was stimulating!",10,0,05,1);                              'Trial rest duration
 next;
     SampleStop();
-    View(mMaxData%).FileSaveAs(print$("%s_mMax", fName$), -1);
+    View(mMaxData%).FileSaveAs(print$("%s_mMax", subjectID$), -1);
     FileClose(-1,0);
     ButtonDisable% := 0;
 return 1;                    ' and stay in current toolbar
@@ -634,7 +549,7 @@ View(MVCData%).YRange(5,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
 View(MVCData%).WindowVisible(1);
 View(MVCData%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(MVCData%).Window(0,0,60,80);            'Make data window right half of screen
-ChanHide(1);ChanHide(2);ChanHide(3);ChanHide(4);ChanHide(8);ChanHide(9);ChanHide(6);ChanHide(7);
+ChanHide(1);ChanHide(2);ChanHide(3);ChanHide(4);ChanHide(6);ChanHide(7);ChanHide(8);ChanHide(9);ChanHide(10);ChanHide(30);ChanHide(31);ChanHide(32);
 '-------------------------------------------------
 'Force Feedback Bar Graph
 '-------------------------------------------------
@@ -660,6 +575,9 @@ ChanProcessAdd(5, 8, 0.2); 'add a 200ms RMS averaging filter
 Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
 MVCstartTime[Trial%]:=View(MVCdata%).Maxtime();
 sTime:=View(MVCdata%).Maxtime();
+var cd%[1];
+cd%[0]:= 100;
+SampleText("MVC", -1, cd%[]);
 CursorNew((sTime - 1),1);
 return 1;                    ' and stay in current toolbar
 end;
@@ -692,11 +610,14 @@ endcase;
     Newsflash("Prepare for next contraction",2,0,05,1);
     Newsflash("Begin Max Contraction in 5... 4... 3... 2... GO!",6,0,05,1); 'Trial start
     sTime:=View(MVCdata%).Maxtime();
+    var cd%[1];
+    cd%[0]:= 100;
+    SampleText("MVC", -1, cd%[]);
   endif;
   if Trial% = 2 then
     Protocol$:="Stopped";    
     SampleStop();
-    View(MVCData%).FileSaveAs(print$("%s_MVC", fName$), -1);
+    View(MVCData%).FileSaveAs(print$("%s_MVC", subjectID$), -1);
     FileClose(-1,0);
   endif;
 return 1;                    ' and stay in current toolbar
@@ -767,9 +688,8 @@ docase
     printlog("Avg Force in X: %f, Moment in X: %f\n", ConvertedFxMVC,ConvertedMxMVC);
     printlog("Avg Force in Y: %f, Moment in Y: %f\n", ConvertedFyMVC,ConvertedMyMVC);
     printlog("Avg Force in Z: %f, Moment in Z: %f\n", ConvertedFzMVC,ConvertedMzMVC);
-    printlog("Sensor Voltage in Z: %f", avgFzMVC);
-    
-    PrintLog("active cursor Fz measurements: %f, %f, %f, avg: %f", activeMVC_one, activeMVC_two, activeMVC_three, activeFxAvg);
+    printlog("Sensor Voltage in Z: %f\n", avgFzMVC);
+    printlog("active cursor Fz measurements: %f, %f, %f, avg: %f\n", activeMVC_one, activeMVC_two, activeMVC_three, activeFxAvg);
 endcase    
 UpperEMGLimit:=(avgBicepMVC*1.5);
 LowerEMGLimit:=(avgBicepMVC*0.95);
@@ -945,7 +865,7 @@ View(cVAData%).YRange(1,((-1*cScale)+ cOffset),(1*cScale)+cOffset);
 View(cVAData%).WindowVisible(1);
 View(cVAData%).DrawMode(-1,3);              'Set event draw mode to lines (3 for waveform)
 View(cVAData%).Window(0,0,60,80);            'Make data window right half of screen
-ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(8);ChanHide(9);
+ChanHide(3);ChanHide(4);ChanHide(7);ChanHide(6);ChanHide(8);ChanHide(9);ChanHide(10);ChanHide(30);ChanHide(31);ChanHide(32);
 '-------------------------------------------------
 'Force Feedback Bar Graph
 '-------------------------------------------------
@@ -980,20 +900,16 @@ ReadyTime:=view(cVAdata%).Maxtime();
 return 1;                    ' and stay in current toolbar
 end;
 func Randomize%()
-if Trial% = 23 then
+if Trial% = 24 then
     Newsflash("All Done!",(10),0,05,1);
-    Protocol$:="Stopped";
     HaltRec%();
+    Protocol$:="Stopped";
 endif;
 
-rNum%:= round(rand()*3)+1;
+rNum%:= round(rand()*5)+1;
 docase
   case rNum% = 1 then
-    if numZero% < 6 then
-      MVClevel$:="At Rest";
-      numZero%+=1;
-    else Randomize%();
-    endif;
+    Randomize%();
   case rNum% = 2 then
     if numTwo% < 6 then
       MVClevel$:="50 Percent";
@@ -1012,6 +928,14 @@ docase
       numFour%+=1;
     else Randomize%();
     endif;
+  case rNum% = 5 then
+    if numZero% < 6 then
+      MVClevel$:="At Rest";
+      numZero%+=1;
+    else Randomize%();
+    endif;
+  case rNum% = 6 then
+    Randomize%();
 endcase;
 return 1;                    ' and stay in current toolbar
 end;
@@ -1026,15 +950,15 @@ docase
     View(ForceFeedbackBarGraph%).HCursorNew(1,UpperEMGLimit);
     View(ForceFeedbackBarGraph%).HCursorNew(1,LowerEMGLimit);
   case MVClevel$="50 Percent" then
-    UpperEMGLimit:=(avgBicepMVC*0.55);
-    LowerEMGLimit:=(avgBicepMVC*0.45);
+    UpperEMGLimit:=(avgBicepMVC*0.525);
+    LowerEMGLimit:=(avgBicepMVC*0.475);
     View(ForceFeedbackBarGraph%).HCursorDelete(-1);
     View(ForceFeedbackBarGraph%).YRange(1,0,2*avgBicepMVC);
     View(ForceFeedbackBarGraph%).HCursorNew(1,UpperEMGLimit);
     View(ForceFeedbackBarGraph%).HCursorNew(1,LowerEMGLimit);
   case MVClevel$="75 Percent" then
-    UpperEMGLimit:=(avgBicepMVC*0.80);
-    LowerEMGLimit:=(avgBicepMVC*0.70);
+    UpperEMGLimit:=(avgBicepMVC*0.775);
+    LowerEMGLimit:=(avgBicepMVC*0.725);
     View(ForceFeedbackBarGraph%).HCursorDelete(-1);
     View(ForceFeedbackBarGraph%).YRange(1,0,2*avgBicepMVC);
     View(ForceFeedbackBarGraph%).HCursorNew(1,UpperEMGLimit);
@@ -1060,49 +984,49 @@ docase
         TMSTriggerTMS%(1);
         SampleKey(a$);
 endcase;
-docase
-  case rNum% = 1 then
-    SampleText("1", -1);
-  case rNum% = 2 then
-    SampleText("2", -1);
-  case rNum% = 3 then
-    SampleText("3", -1);
-  case rNum% = 4 then
-    SampleText("4", -1);
-  case rNum% = 5 then
-    SampleText("5", -1);
-  case rNum% = 6 then
-    SampleText("6", -1);
-  case rNum% = 7 then
-    SampleText("7", -1);
-  case rNum% = 8 then
-    SampleText("8", -1);
-  case rNum% = 9 then
-    SampleText("9", -1);
-  case rNum% = 10 then
-    SampleText("10", -1);
-  case rNum% = 11 then
-    SampleText("11", -1);
-  case rNum% = 12 then
-    SampleText("12", -1);
-  case rNum% = 13 then
-    SampleText("13", -1);
-  case rNum% = 14 then
-    SampleText("14", -1);
-  case rNum% = 15 then
-    SampleText("15", -1);
-  case rNum% = 16 then
-    SampleText("16", -1);
-endcase;
+'docase
+'  case rNum% = 1 then
+'    SampleText("1", -1);
+'  case rNum% = 2 then
+'    SampleText("2", -1);
+'  case rNum% = 3 then
+'    SampleText("3", -1);
+'  case rNum% = 4 then
+'    SampleText("4", -1);
+'  case rNum% = 5 then
+'    SampleText("5", -1);
+'  case rNum% = 6 then
+'    SampleText("6", -1);
+'  case rNum% = 7 then
+'    SampleText("7", -1);
+'  case rNum% = 8 then
+'    SampleText("8", -1);
+'  case rNum% = 9 then
+'    SampleText("9", -1);
+'  case rNum% = 10 then
+'    SampleText("10", -1);
+'  case rNum% = 11 then
+'    SampleText("11", -1);
+'  case rNum% = 12 then
+'    SampleText("12", -1);
+'  case rNum% = 13 then
+'    SampleText("13", -1);
+'  case rNum% = 14 then
+'    SampleText("14", -1);
+'  case rNum% = 15 then
+'    SampleText("15", -1);
+'  case rNum% = 16 then
+'    SampleText("16", -1);
+'endcase;
 WaitLoop%:=1;
 Trial%+=1;
 RandomTime%();
 randomize%();
 EffortAdjust%();
-Newsflash("Well that was stimulating!",(5),0,05,1);  'Trial rest duration
-Newsflash("Arm TMS",(5),0,05,1);
+Newsflash("Well that was stimulating!",(rTime-20),0,05,1);  'Trial rest duration
+Newsflash("Arm TMS",(10),0,05,1);
 SetParameters%();
-Newsflash("Arm TMS",(rTime-10),0,05,0);
+Newsflash("Get Ready!",(5),0,05,0);
 'waitTime:=View(cVAdata%).MaxTime();
 'yield(3);
 'SetParameters%();
@@ -1123,19 +1047,19 @@ if DigitimerPulse$ ="Train" then
     'yield(0);
   docase
     case TMSpulse$ ="+100ms" then
-        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+        TMSSetRemoteControl%(MagstimSerialPort%);
         TMSSetIsi%(1, 130);
         SampleKey(p$);
     case TMSpulse$ ="+70ms" then
-        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+        TMSSetRemoteControl%(MagstimSerialPort%);
         TMSSetIsi%(1, 100);
         SampleKey(o$);
     'case TMSpulse$ ="+40ms" then
-    '    TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+    '    TMSSetRemoteControl%(MagstimSerialPort%);
     '    TMSSetIsi%(1, 70);
     '    SampleKey(i$);
     'case TMSpulse$ ="+0ms" then
-    '    TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+    '    TMSSetRemoteControl%(MagstimSerialPort%);
     '    TMSSetIsi%(1, 30);
     '    SampleKey(u$);
     endcase;
@@ -1143,7 +1067,7 @@ endif;
 if DigitimerPulse$ ="Single" then
   setTMSIntensity%(TMSintensityA, 1);
   setTMSIntensity%(0, 2);
-  TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+  TMSSetRemoteControl%(MagstimSerialPort%);
   TMSSetIsi%(1, 0);
     endif;
     endif;
@@ -1152,7 +1076,7 @@ return 1;                    ' and stay in current toolbar
 end;
 func RandomTime%()
 'if PreviousStim$ ="Painful" then
-  rTime:= 60;'round(rand()*120)+60;
+  rTime:= 90;'round(rand()*120)+60;
 'endif;
 'if PreviousStim$ = "TMS Only" then
 'else
@@ -1183,11 +1107,11 @@ if ((Protocol$ = "find m-wave")) then
   Protocol$ := "Stopped";
     docase
     case Muscle$ = "Biceps" then
-        View(mWaveThreshData%).FileSaveAs(print$("%s_BicepsMwave", fName$), -1);
+        View(mWaveThreshData%).FileSaveAs(print$("%s_BicepsMwave", subjectID$), -1);
     case Muscle$ = "Triceps" then
-        View(mWaveThreshData%).FileSaveAs(print$("%s_TricepsMwave", fName$), -1);
+        View(mWaveThreshData%).FileSaveAs(print$("%s_TricepsMwave", subjectID$), -1);
     case Muscle$ = "MP Stim" then
-        View(mWaveThreshData%).FileSaveAs(print$("%s_MP_stim", fName$), -1);
+        View(mWaveThreshData%).FileSaveAs(print$("%s_MP_stim", subjectID$), -1);
     endcase;
   FileClose(-1,0);
   ButtonDisable% := 0;
@@ -1195,34 +1119,34 @@ endif;
 if ((Protocol$ = "REC m-wave")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(mMaxData%).FileSaveAs(print$("%s_mMax", fName$), -1);
+  View(mMaxData%).FileSaveAs(print$("%s_mMax", subjectID$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "REC_MVC")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(MVCData%).FileSaveAs(print$("%s_MVC", fName$), -1);
+  View(MVCData%).FileSaveAs(print$("%s_MVC", subjectID$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "find rMT")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(findrMTdata%).FileSaveAs(print$("%s_rMTlocating", fName$), -1);
+  View(findrMTdata%).FileSaveAs(print$("%s_rMTlocating", subjectID$), -1);
   ButtonDisable% := 0;
   FileClose(-1,0);
 endif;
 if ((Protocol$ = "cVA")) then
-  SampleStop();
-  Protocol$ := "Stopped";
+    Protocol$ := "Stopped";
+    SampleStop();
   docase
   case cVA$ = "Arm Posture" then
-    View(cVAData%).FileSaveAs(print$("%s_ArmPosture_cVA", fName$), -1);
+    View(cVAData%).FileSaveAs(print$("%s_ArmPosture_cVA", subjectID$), -1);
   case cVA$ = "Paired Pulse" then
-    View(cVAData%).FileSaveAs(print$("%s_PP_cVA", fName$), -1);   
+    View(cVAData%).FileSaveAs(print$("%s_PP_cVA", subjectID$), -1);   
   case cVA$ = "Cutaneous Stim" then
-    View(cVAData%).FileSaveAs(print$("%s_CS_cVA", fName$), -1);
+    View(cVAData%).FileSaveAs(print$("%s_CS_cVA", subjectID$), -1);
 endcase
   ButtonDisable% := 0;
   FileClose(-1,0);
@@ -1230,7 +1154,7 @@ endif;
 if ((Protocol$ = "Recruitment Curve")) then
   SampleStop();
   Protocol$ := "Stopped";
-  View(Data%).FileSaveAs(print$("%s_RC", fName$), -1);
+  View(Data%).FileSaveAs(print$("%s_RC", subjectID$), -1);
   FileClose(-1,0);
   ButtonDisable% := 0;
 endif;
@@ -1280,6 +1204,7 @@ HCursorNew(1,LowerEMGLimit);
 FrontView(LogHandle());              'Bring the Log view to the front
 FrontView(ForceFeedbackBarGraph%);          'Bring the bar graph results view to the front
 FrontView(pVAdata%);                  'Bring the data view to the front
+ChanHide(3);ChanHide(4);ChanHide(5);ChanHide(7);ChanHide(11);ChanHide(8);ChanHide(10);ChanHide(30);ChanHide(31);ChanHide(32);
 return 1;
 end;
 '----------------------------------------------------------------------------------------------------------------------
@@ -1332,19 +1257,19 @@ ArrConst(RestTwitch[],curTwitch);
       Newsflash("Prepare for next contraction",5,0,05,1);
     endif;
     if TwitchTrial% = 9 then
-      'ArrSum(VA_Arr[0:10],avgVA);
+      Protocol$:="Stopped";
       SampleStop();
       var fd%;
-      'fName$ := View(pVAdata%).FileName$(3);
-      View(pVAdata%).FileSaveAs(print$("%s_pVA", fName$), -1, 0, "Save analysis as...");
+      'subjectID$ := View(pVAdata%).FileName$(3);
+      View(pVAdata%).FileSaveAs(print$("%s_pVA", subjectID$), -1, 0, "Save analysis as...");
       fd% := FileNew(1);
       if (fd% < 0) then
         printlog("Could not open text file to save data, printing to log window.\n");
         endif;
       if (fd% < 0) then
-        printlog("%sSTIM\t%sVAL\n", fName$, fName$);
+        printlog("%sSTIM\t%sVAL\n", subjectID$, subjectID$);
       else
-        View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$);
+        View(fd%).print("%sSTIM\t%sVAL\n", subjectID$, subjectID$);
       endif;
       var j%;
       for j% := 0 to 9 do
@@ -1353,7 +1278,7 @@ ArrConst(RestTwitch[],curTwitch);
         next;
       var ret%;
       if (fd% >= 0) then
-        ret% := View(fd%).FileSaveAs(print$("%s%s", fName$, "_pVA_TwitchAmps.txt"), 1, 0, "Save analysis as...");
+        ret% := View(fd%).FileSaveAs(print$("%s%s", subjectID$, "_pVA_TwitchAmps.txt"), 1, 0, "Save analysis as...");
         if (ret% < 0) then
           View(fd%);
           FileClose(0, -1);
@@ -1489,7 +1414,7 @@ if ((Protocol$ = "find rMT")) then
   FrontView(findrMTData%);
   curTime := View(findrMTdata%).Maxtime();
     if (View(findrMTData%).Maxtime() - TMSlastCommandTime > 0.5) then
-      TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+      TMSSetRemoteControl%(MagstimSerialPort%);
       'armTMS%();
     endif;
     if (updateNecessary% and (View(findrMTdata%).Maxtime()-currentTrigTime >= .9)) then
@@ -1518,7 +1443,7 @@ if ((Protocol$ = "Recruitment Curve")) then
   FrontView(data%);
   curTime := View(data%).Maxtime();
     if (View(data%).Maxtime() - TMSlastCommandTime > 0.5) then
-        TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+        TMSSetRemoteControl%(MagstimSerialPort%);
        ' armTMS%();
     endif;
     if updateNecessary% = 0 then
@@ -1550,7 +1475,7 @@ if ((Protocol$ = "cVA")) then
   if (cVAdata%>=0) then
     FrontView(cVAdata%);
     if (View(cVAdata%).Maxtime() - TMSlastCommandTime > 0.5) then
-      TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+      TMSSetRemoteControl%(MagstimSerialPort%);
     endif;
         if ready$ = "First Time" then
             if view(cVAdata%).Maxtime() - ReadyTime > 2 then
@@ -1587,95 +1512,113 @@ if ((Protocol$ = "cVA")) then
 '      if MVClevel$ = "At Rest" then
         docase
           case TMSstatus$ = "Not Armed" then
-            'TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+            'TMSSetRemoteControl%(MagstimSerialPort%);
             armTMS%();
             TMSstatus$:= "Arming";
           case TMSstatus$ = "Arming" then
             waitforTMStoArm:= view(cVAdata%).Maxtime();
             TMSstatus$:= "Armed";
-          case TMSstatus$ = "Armed" then
-            if (View(cVAdata%).Maxtime() - waitforTMStoArm > 2) then
-                if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
-                  yield(0);
-                  counter%+=1;
-                  if counter% >= 20 then
-                    ready$:="No";
-                    TMSstatus$:="Not Armed";
-                    cVAmark();
-                    Stimulus%();
-                  endif
-                else
-                  counter%:=0;
+            case TMSstatus$ = "Armed" then
+                if MVClevel$ = "At Rest" then
+                    if WaitLoop% = 1 then   'Wait loop to ensure Magstim has time to arm/charge before firing stimulus
+                        TimeOne:=view(cVAdata%).Maxtime();
+                        WaitLoop%:=2;
+                    endif;
+                    if waitLoop% = 2 then
+                        TimeTwo:=view(cVAdata%).Maxtime();
+                        if TimeTwo - TimeOne < 4 then
+                            yield(0)
+                        else
+                            WaitLoop%:=0;
+                            ready$:="No";
+                            TMSstatus$:="Not Armed";
+                            cVAmark();
+                            Stimulus%();
+                        endif;
+                    endif;
                 endif;
-            endif;
-          endcase;
-      endif;
-        if MVClevel$ = "At Rest" then
-            if WaitLoop% = 1 then   'Wait loop to ensure Magstim has time to arm/charge before firing stimulus
-                    TimeOne:=view(cVAdata%).Maxtime();
-                    WaitLoop%:=2;
-                endif;
-                if waitLoop% = 2 then
-                    TimeTwo:=view(cVAdata%).Maxtime();
-                    if TimeTwo - TimeOne < 4 then
-                        yield(0)
+                if (View(cVAdata%).Maxtime() - waitforTMStoArm > 2) then
+                    if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
+                        yield(0);
+                        counter%+=1;
+                        if counter% >= 20 then
+                            ready$:="No";
+                            TMSstatus$:="Not Armed";
+                            cVAmark();
+                            Stimulus%();
+                        endif
                     else
-                        WaitLoop%:=0;
+                        counter%:=0;
+                    endif; 
                 endif;
-        if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
-          yield(0);
-          counter%+=1;
-          if counter% >= 30 then
-            ready$:="No";
-            cVAmark();
-            Stimulus%();
-          endif
-        else     
-            if MVClevel$ = "50 Percent" then
-        if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
-          yield(0);
-          counter%+=1;
-          if counter% >= 20 then
-            ready$:="No";
-            cVAmark();
-            Stimulus%();
-          endif
-        else
-          counter%:=0;
+            endcase;
         endif;
-      endif;
-      if MVClevel$ = "75 Percent" then
-        if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
-          yield(0);
-          counter%+=1;
-          if counter% >= 20 then
-            ready$:="No";
-            cVAmark()
-            Stimulus%()
-          endif
-        else
-          counter%:=0;
-        endif;
-      endif;      
-      if MVClevel$ = "100 Percent" then
-        if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
-          yield(0);
-          counter%+=1;
-          if counter% >= 20 then
-            ready$:="No";
-            cVAmark()                
-            Stimulus%()
-          endif
-        else
-          counter%:=0;
-        endif;
-     endif;      
+'        if MVClevel$ = "At Rest" then
+'            if WaitLoop% = 1 then   'Wait loop to ensure Magstim has time to arm/charge before firing stimulus
+'                TimeOne:=view(cVAdata%).Maxtime();
+'                WaitLoop%:=2;
+'            endif;
+'            if waitLoop% = 2 then
+'                TimeTwo:=view(cVAdata%).Maxtime();
+'                if TimeTwo - TimeOne < 4 then
+'                    yield(0)
+'                else
+'                    WaitLoop%:=0;
+'                endif;
+'                if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
+'                    yield(0);
+'                    counter%+=1;
+'                    if counter% >= 30 then
+'                        ready$:="No";
+'                        cVAmark();
+'                        Stimulus%();
+'                    endif
+'                else
+'                    counter%:=0;
+'                endif
+'                if MVClevel$ = "50 Percent" then
+'                    if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
+'                        yield(0);
+'                        counter%+=1;
+'                        if counter% >= 20 then
+'                            ready$:="No";
+'                            cVAmark();
+'                            Stimulus%();
+'                        endif
+'                    else
+'                        counter%:=0;
+'                    endif;
+'                endif;
+'                if MVClevel$ = "75 Percent" then
+'                    if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
+'                        yield(0);
+'                        counter%+=1;
+'                        if counter% >= 20 then
+'                            ready$:="No";
+'                            cVAmark()
+'                            Stimulus%()
+'                        endif
+'                    else
+'                        counter%:=0;
+'                    endif;
+'                endif;
+'                if MVClevel$ = "100 Percent" then
+'                    if (ForceFeedbackLevel <= UpperEMGLimit and ForceFeedbackLevel >= LowerEMGLimit) then  'If force is in target range then....
+'                        yield(0);
+'                        counter%+=1;
+'                        if counter% >= 20 then
+'                            ready$:="No";
+'                            cVAmark()
+'                            Stimulus%()
+'                        endif
+'                    else
+'                        counter%:=0;
+'                    endif;
+'                endif;
+'            endif;
+'        endif;
     endif;
-  endif;
-    endif;
-    endif;
-    endif;
-    'endif;
+endif;
 if ((Protocol$ = "Stopped")) then
 return 1;'Stay in toolbar
 endif;
@@ -1687,16 +1630,6 @@ end;
 func getInterStimulusInterval()
   return interStimulusIntervalMin + Rand()*jitter;
 end;
-
-func checkTMSStatus%()
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    TMSGetStatus%(1);
-  else
-    ' do nothing (for now at least)
-  endif;
-  return 1;
-end;
-
 proc fireTMSWithPause()
   var curTime;
   View(data%);
@@ -1710,105 +1643,58 @@ proc fireTMSWithPause()
 end;
 
 func armTMS%()
-
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    TMSSetRemoteControl%(1);
-    TMSArmTMS%(1);
-  else
-  '  SampleSeqVar(6, 0x0200);   'binary: 00000010
-  '  SampleSeqVar(8,1);
-  '  SampleSeqVar(6, 0x03);
-  '  SampleSeqVar(8,1);
-    endif;
-  return 1;
+TMSSetRemoteControl%(1);
+TMSArmTMS%(1);
+return 1;
 end;
-
-func disarmTMS%()
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    ' do nothing (for now)
-  else
-  '  SampleSeqVar(6, 0x0100);  'binary: 00000001
-  '  SampleSeqVar(8,1);
-  '  SampleSeqVar(6, 0x03);
-  '  SampleSeqVar(8,1);
-    endif;
-  return 1;
-end;
-
 func setTMSIntensity%(intensity%, whichTMS%)
 ' the whichTMS% variable applied to which TMS module
 ' in a paired pulse setup NOT which TMS as win the
 ' distinction of TMS Magstim 200 versus the old
 ' Magstim module
-
-
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    TMSSetRemoteControl%(1);
-    if (whichTMS% = 1) then
-      TMSSetIntensity%(1, intensity%);
-    else
-      TMSSetIntensityB%(1, intensity%);
-    endif;
-  else
-    ' currently we only have code for the old magstim
-    ' module to do single pulse (not paired pulse)
-    '  SampleSeqVar(5, (0x80 BOR intensity%)*256);
-    '  SampleSeqVar(7, 1);
-  endif;
-  return 1;
+TMSSetRemoteControl%(1);
+if (whichTMS% = 1) then
+    TMSSetIntensity%(1, intensity%);
+else
+    TMSSetIntensityB%(1, intensity%);
+endif;
+return 1;
 end;
 
 func fireTMS%()
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    TMSTriggerTMS%(1);
-  else
-    ' no code here currently
-    ' we'll just paste the code from the old emg record script
-  endif;
-  return 1;
+TMSTriggerTMS%(1);
+return 1;
 end;
 
 func setTMSIntensityPortal%()
-  curStimOutput%:=Input("Enter new Stimulator Output", curStimOutput%, 0, 100);
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    setTMSIntensity%(curStimOutput%, 1);
-  else
-    ' currently no code here for the old magstim
-  endif;
-  return 1;
+curStimOutput%:=Input("Enter new Stimulator Output", curStimOutput%, 0, 100);
+setTMSIntensity%(curStimOutput%, 1);
+return 1;
 end;
 
 func setTMSBIntensityPortal%()
-  curStimOutput%:=Input("Enter new Stimulator Output", curStimOutput%, 0, 100);
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    setTMSIntensity%(curStimOutput%, 2);
-  else
-    ' currently no code here for the old magstim
-  endif;
-  return 1;
+curStimOutput%:=Input("Enter new Stimulator Output", curStimOutput%, 0, 100);
+setTMSIntensity%(curStimOutput%, 2);
+return 1;
 end;
 
 func setISIPortal%()
-  ISI := Input("Enter new inter-stimulus interval", isi, 0);
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    TMSSetRemoteControl%(1);
-    TMSSetIsi%(1, isi);
-  else
-    ' currently no paired pulse code for the old magstim
-  endif;
-  return 1;
+ISI := Input("Enter new inter-stimulus interval", isi, 0);
+TMSSetRemoteControl%(1);
+TMSSetIsi%(1, isi);
+return 1;
 end;
 '**********************************************************
 '*********************************************************
 'Filtering Funcs
-'proc FILTERexpFilterInit()
-'  FILTERexpFilterCursorStart% := CursorNew();
-'  FILTERexpFilterCursorEnd% := CursorNew();
-'  CursorLabel(4, FILTERexpFilterCursorStart%, "filter start");
-'  CursorLabel(4, FILTERexpFilterCursorEnd%, "filter end");
-'  Cursor(FILTERexpFilterCursorStart%, XToBin(FILTERexpFilterStart));
-'  Cursor(FILTERexpFilterCursorEnd%, XToBin(FILTERexpFilterEnd));
-'end;
+proc FILTERexpFilterInit()
+  FILTERexpFilterCursorStart% := CursorNew();
+  FILTERexpFilterCursorEnd% := CursorNew();
+  CursorLabel(4, FILTERexpFilterCursorStart%, "filter start");
+  CursorLabel(4, FILTERexpFilterCursorEnd%, "filter end");
+  Cursor(FILTERexpFilterCursorStart%, XToBin(.01));
+  Cursor(FILTERexpFilterCursorEnd%, XToBin(.1));
+end;
 
 proc FILTERsubtractExp(chan%, sTime, eTime)
   var length%;
@@ -1963,7 +1849,7 @@ var numCommandsSent% := 0;
 var TMSSerialPortBuf%[MAXBUFSIZE%];
 
 func TMSSendCharString%(port%, mes$)
-  return SerialWrite(TMSMAGSTIM200SPORT%, mes$);
+  return SerialWrite(MagstimSerialPort%, mes$);
 end;
 
 func TMSSendOneByteCmd%(port%, command%,commanddata%)
@@ -1974,7 +1860,7 @@ func TMSSendOneByteCmd%(port%, command%,commanddata%)
   portdata%[0] := command%;
   portdata%[1] :=commanddata%;
   portdata%[2] := GetCRC%(portdata%[], 2);
-  ret% :=  SerialWrite(TMSMAGSTIM200SPORT%, portdata%[]);
+  ret% :=  SerialWrite(MagstimSerialPort%, portdata%[]);
 
   ' we're going to update when we send the TMS machine commands so we can keep sending
   ' it something at least every 0.5 seconds.  SampleStatus returns the status of our sampling
@@ -2036,19 +1922,14 @@ func BitWiseComplement%(num%)
   return newnum%;
 end;
 
-func TMSOpenConnection%(port%)
-
-  var ret%;
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    ret% := SerialOpen(TMSMAGSTIM200SPORT%, 9600, 8, 0, 1, 0); '9600 is the bit rate
-    if (ret% < 0) then
-      printlog("Error occured in opening serial connection: %d\n", ret%);
-      return ret%;
-    endif;
-  else
-    ' do nothing for the old magstim
-  endif;
-  return 0;
+func TMSOpenConnection%(port%) 'If the code does not appear to run at all, you likely do not have the Magstim connected to the correct serial port (if using serial to USB, it must be plugged into the correct USB port)
+var ret%;
+ret% := SerialOpen(MagstimSerialPort%, 9600, 8, 0, 1, 0); '9600 is the bit rate
+if (ret% < 0) then
+    printlog("Error occured in opening serial connection: %d\n", ret%);
+    return ret%;
+endif;
+return 0;
 end;
 
 func TMSFlushRecvBuffer%(port%)
@@ -2056,19 +1937,19 @@ func TMSFlushRecvBuffer%(port%)
 '  while (SerialCount(port%) > 0) do
 '    SerialRead(port%, buf%[]);
 '  wend;
-  if (SerialCount(TMSMAGSTIM200SPORT%) > 0) then
-    SerialRead(TMSMAGSTIM200SPORT%, buf%[]);
+  if (SerialCount(MagstimSerialPort%) > 0) then
+    SerialRead(MagstimSerialPort%, buf%[]);
   endif;
   return 0;
 end;
 
-func TMSGetStatus%(port%)
-  var statusbyte%;
-  TMSFlushRecvBuffer%(port%);
-  if (TMSSendOneByteCmd%(TMSMAGSTIM200SPORT%, 0x4A, 0x40) < 0) then
-    return -1;
-  endif;
-  TMSCheckCommand%(TMSMAGSTIM200SPORT%, 0x4A);
+'func TMSGetStatus%(port%) 'Function not currently used, but useful
+'  var statusbyte%;
+'  TMSFlushRecvBuffer%(port%);
+'  if (TMSSendOneByteCmd%(MagstimSerialPort%, 0x4A, 0x40) < 0) then
+'    return -1;
+'  endif;
+'  TMSCheckCommand%(MagstimSerialPort%, 0x4A);
 '  printlog("Num chars read: %d\n", SerialRead(port%, statusstr$));
 '  SerialRead(port%, statusstr%[]);
 '  printlog("status: %s\n", statusstr$);
@@ -2078,54 +1959,54 @@ func TMSGetStatus%(port%)
 '    printlog("Error: status command not acknowledged");
 '    return -2;
 '  endif;
-
-  statusbyte% := TMSSerialPortBuf%[1];
-  docase
-    case (statusbyte% band 0x01) then
-      printlog("Status: standby\n");
-    case (statusbyte% band 0x02) then
-      printlog("Status: armed\n");
-    case (statusbyte% band 0x04) then
-      printlog("Status: ready\n");
-    else
-      printlog("Status: unknown\n");
-  endcase;
-
-  if (statusbyte% band 0x80) then
-    printlog("Coil: present\n");
-  else
-    if (statusbyte% band 0x10) then
-      printlog("Coil: replace\n");
-    endif;
-  endif;
-
-  if (statusbyte% band 0x20) then
-    if (statusbyte% band 0x40) then
-      printlog("Error: fatal\n");
-    else
-      printlog("Error: non-fatal\n");
-    endif;
-  else
-    printlog("Error: none\n");
-  endif;
-
-  if (statusbyte% band 0x80) then
-    printlog("Remote control: on\n");
-  else
-    printlog("Remote control: off\n");
-  endif;
-  printlog("Power A: %s\n", Chr$(TMSSerialPortBuf%[2]) + Chr$(TMSSerialPortBuf%[3]) + Chr$(TMSSerialPortBuf%[4]));
-  printlog("Power B: %s\n", Chr$(TMSSerialPortBuf%[5]) + Chr$(TMSSerialPortBuf%[6]) + Chr$(TMSSerialPortBuf%[7]));
-  printlog("ISI: %s\n", Chr$(TMSSerialPortBuf%[8]) + Chr$(TMSSerialPortBuf%[9]) + Chr$(TMSSerialPortBuf%[10]));
-  return 0;
-end;
+'
+'  statusbyte% := TMSSerialPortBuf%[1];
+'  docase
+'    case (statusbyte% band 0x01) then
+'      printlog("Status: standby\n");
+'    case (statusbyte% band 0x02) then
+'      printlog("Status: armed\n");
+'    case (statusbyte% band 0x04) then
+'      printlog("Status: ready\n");
+'    else
+'      printlog("Status: unknown\n");
+'  endcase;
+'
+'  if (statusbyte% band 0x80) then
+'    printlog("Coil: present\n");
+'  else
+'    if (statusbyte% band 0x10) then
+'      printlog("Coil: replace\n");
+'    endif;
+'  endif;
+'
+'  if (statusbyte% band 0x20) then
+'    if (statusbyte% band 0x40) then
+'      printlog("Error: fatal\n");
+'    else
+'      printlog("Error: non-fatal\n");
+'    endif;
+'  else
+'    printlog("Error: none\n");
+'  endif;
+'
+'  if (statusbyte% band 0x80) then
+'    printlog("Remote control: on\n");
+'  else
+'    printlog("Remote control: off\n");
+'  endif;
+'  printlog("Power A: %s\n", Chr$(TMSSerialPortBuf%[2]) + Chr$(TMSSerialPortBuf%[3]) + Chr$(TMSSerialPortBuf%[4]));
+'  printlog("Power B: %s\n", Chr$(TMSSerialPortBuf%[5]) + Chr$(TMSSerialPortBuf%[6]) + Chr$(TMSSerialPortBuf%[7]));
+'  printlog("ISI: %s\n", Chr$(TMSSerialPortBuf%[8]) + Chr$(TMSSerialPortBuf%[9]) + Chr$(TMSSerialPortBuf%[10]));
+'  return 0;
+'end;
 
 func TMSCheckCommand%(port%, cmd%)
-  while (SerialCount(TMSMAGSTIM200SPORT%) < 3) do
+  while (SerialCount(MagstimSerialPort%) < 3) do
     Yield();
   wend;
-  if (SerialCount(TMSMAGSTIM200SPORT%) > 0) then
-    SerialRead(TMSMAGSTIM200SPORT%, TMSSerialPortBuf%[]);
+  if (SerialCount(MagstimSerialPort%) > 0) then
+    SerialRead(MagstimSerialPort%, TMSSerialPortBuf%[]);
     if (TMSSerialPortBuf%[0] = Asc("?")) then
       printlog("Error: command not understood\n");
       return -1;
@@ -2153,7 +2034,7 @@ end;
 func TMSSetRemoteControl%(port%)
 TMSSendOneByteCmd%(port%, 0x51, 0x40);
 TMSSendOneByteCmd%(port%, 0x45, 0x42);
-  if (TMSSendOneByteCmd%(TMSMAGSTIM200SPORT%, 0x51, 0x40) < 0) then
+  if (TMSSendOneByteCmd%(MagstimSerialPort%, 0x51, 0x40) < 0) then
     'printlog("Error: could not activate remote control of TMS\n");
     return -1;
   endif;
@@ -2167,7 +2048,7 @@ func TMSSendThreeByteCmd%(port%, cmd%, data$)
   portdata%[2] := Asc(Mid$(data$,2,1));
   portdata%[3] := Asc(Mid$(data$,3,1));
   portdata%[4] := GetCRC%(portdata%[], 4);
-  return SerialWrite(TMSMAGSTIM200SPORT%, portdata%[]);
+  return SerialWrite(MagstimSerialPort%, portdata%[]);
 end;
 
 func TMSSetIntensity%(port%, power%)
@@ -2178,7 +2059,7 @@ func TMSSetIntensity%(port%, power%)
   var powerstring$;
   powerstring$ := Print$("%03d", power%);
   printlog("Setting TMS intensity: " + powerstring$ + "\n");
-  return TMSSendThreeByteCmd%(TMSMAGSTIM200SPORT%, 0x40, powerstring$);
+  return TMSSendThreeByteCmd%(MagstimSerialPort%, 0x40, powerstring$);
 end;
 
 func TMSSetIntensityB%(port%, power%)
@@ -2189,7 +2070,7 @@ func TMSSetIntensityB%(port%, power%)
   var powerstring$;
   powerstring$ := Print$("%03d", power%);
   printlog("Setting TMS intensity: " + powerstring$ + "\n");
-  return TMSSendThreeByteCmd%(TMSMAGSTIM200SPORT%, 0x41, powerstring$);
+  return TMSSendThreeByteCmd%(MagstimSerialPort%, 0x41, powerstring$);
 end;
 
 func TMSSetISI%(port%, isi%)
@@ -2217,13 +2098,9 @@ TMSSendOneByteCmd%(port%, 0x45, 0x48); 'sending it via serial line
 end;
 
 func TMSCloseConnection%(port%)
-  if (TMSwhichMagstim% = TMSMAGSTIM200%) then
-    SerialClose(TMSMAGSTIM200SPORT%);
-    printlog("Number of commands sent: %d\n", numCommandsSent%);
-  else
-    ' do nothing for the old magstim
-  endif;
-  return 0;
+SerialClose(MagstimSerialPort%);
+printlog("Number of commands sent: %d\n", numCommandsSent%);
+return 0;
 end;
 '----------------------------------------------------------------------------------------------------------------------'
 '------------------------------------------Allow for NewsFlash Message Boxes-------------------------------------------'
@@ -2264,108 +2141,7 @@ end;
   '----------------------------------------------------------------------------------------------------------------------'
   '------------------------------------------Recruitment Curve-----------------------------------------------------------'
   '----------------------------------------------------------------------------------------------------------------------'
-  proc getRCParams()
-  	DlgCreate("RC Parameters");
-  	DlgInteger(1, "rMT", 0, 100);
-  	DlgInteger(2, "Start intensity", 0, 100);
-  	DlgInteger(3, "End intensity", 0, 100);
-  	DlgCheck(4, "Monitor contraction");
-
-  	rcStartIntensity% := rMT% - 5;
-  	rcEndIntensity% := 100;
-  	DlgShow(rMT%, rcStartIntensity%, rcEndIntensity%, contractionMonitor%);
-end;
-'
-func fillEpochArray(start%, numEpochs%, stimulus%)
-	var i%;
-	if (stimulus% > 100) then
-		stimulus% := 100;
-	endif;
-	for i% := start% to (start%+numEpochs%-1) do
-		stimulusIntensities%[i%] := stimulus%;
-	next
-end
-func doRC%()
-Protocol$:= "Recruitment Curve";
-  	var i%;
-  	var numLevels%;
-  	getRCParams();
-  '	numEpochs%:= numLevels% * 6;
-  '	rMT%:=20;
-  	var j%;
-  	'fillEpochArray(0,6,rMT%-5);
-  	'fillEpochArray(6,6,rMT%);
-  	'fillEpochArray(12,6,rMT%+5);
-  	'fillEpochArray(18,6,rMT%+10);
-  	'fillEpochArray(24,6,rMT%+15);
-  	'fillEpochArray(30,6,rMT%+20);
-  '		fillEpochArray(36,6,rMT%+25);
-  '	for i% := 0 to numLevels%-1 do
-  '		fillEpochArray(i%*6, 6, rMT% + (i%-1)*5);
-  '	next;
-  	i% := rcStartIntensity%;
-  	numLevels% := 0;
-  	while i% <= rcEndIntensity% do
-  		fillEpochArray(numLevels%*6, 6, i%);
-  		numLevels% += 1;
-  		i% += 5;
-  	wend;
-
-  ' make sure we go all the way up to 100
-  	if (rcEndIntensity%=100 and i% <> 105) then
-  		fillEpochArray(numLevels%*6, 6, 100);
-  		numLevels% += 1;
-  	endif;
-  	numEpochs% := numLevels% * 6;
-
-  	var tmpIntArray%[numEpochs%];
-  	var tmpIntArray2%[numEpochs%];
-  	var tmpPickArray%[numEpochs%];
-  	var tmpIntArray3%[numEpochs%];
-  	var numRandomized% := 0;
-  	var numLeftToRandomize%;
-  	numLeftToRandomize% := numEpochs%;
-
-  	'Rand(tmpPickArray%, numEpochs%-1, 0);
-
-  	for i% := 0 to numEpochs%-1 do
-  		tmpIntArray%[i%] := stimulusIntensities%[i%];
-  	next;
-  	printlog("Starting randomization...\n");
-  	for i% := 0 to numEpochs%-1 do
-  		var pick%;
-  		pick% := Rand(numLeftToRandomize%, 0);
-  		tmpIntArray2%[i%] := tmpIntArray%[pick%];
-  		var y%;
-  		for y% := 0 to pick%-1 do
-  			tmpIntArray3%[y%] := tmpIntArray%[y%];
-  		next;
-  		for y% := pick% + 1 to numLeftToRandomize%-1 do
-  			tmpIntArray3%[y%-1] := tmpIntArray%[y%];
-  		next;
-  		ArrConst(tmpIntArray%, tmpIntArray3%);
-  		numLeftToRandomize% -= 1;
-  		printlog("Randomized %d, pick %d, left: \n", i%, pick%);
-  	next;
-  	for i% := 0 to numEpochs%-1 do
-  '		tmpIntArray%[i%] := stimulusIntensities%[tmpPickArray%[i%]];
-  		printlog("%4d %4d %4d %4d\n", i%, tmpPickArray%[i%], stimulusIntensities%[i%], tmpIntArray2%[i%]);
-  	next;
-  	'Debug();
-  	ArrConst(stimulusIntensities%, tmpIntArray2%);
-  	doAutoControl%:=1;
-  	currentProtocol%:=RCPROTOCOL%;
-  	numStim%:=0;
-  	TMSSetISI%(1, 0);
-
-  	fileRCNo% += 1;
-  	SampleAutoName$(Print$("%s_RC", subjectID$));
-New%();
-  	RCMeasureInit%();
-  	updateEpoch();
-end
-proc ANALYZErc(curPeakToPeak)
-'	rcPeakToPeak[numStim%-1] := curPeakToPeak;	
+proc ANALYZErc(curPeakToPeak)	
 	var stim%;
 	stim% := RCIarray%[RCstimCount%-1];
 docase
@@ -2401,7 +2177,7 @@ var coef[3], maxSlope, maxInt;
 if RCstimCount% = 54 then
     Protocol$ := "Stopped";
     SampleStop();
-    View(Data%).FileSaveAs(print$("%s_RCurve", fName$), -1);
+    View(Data%).FileSaveAs(print$("%s_RCurve", subjectID$), -1);
     ANALYZEprintResults(maxSlope, maxInt); 'This won't work with current variables (Coef[],maxSlope, maxInt)
     FileClose(0, 1);
 else
@@ -2409,88 +2185,6 @@ else
     TMSSetIntensity%(1, nextStim%);
     updateNecessary%:= 0;
 endif;
-end;
-func New%()								'New sampling window
-View(LogHandle());						'Make log view the current view
-EditSelectAll();						'Select all text in log view
-EditClear();							'Delete it
-Window(0,80,100,100);					'Display it at the bottom of the screen
-WindowVisible(1);						'Make it visbible
-
-if (data%>0) then							'If there is already a data view open then
-  View(data%);							'Close it
-  FileClose(0, -1);
-endif;
-startUp%:=0;
-
-
-data%:=FileNew(0,0);					'Open a new data file for sampling
-LastLook:=0; ''''''''''''''
-
-if data%<0 then 
-	SampleStop();
-	FileClose(-1,-1);
-	data%:=FileNew(0,0);
-	if data%<0 then
-		Message("Unable to open new data file.  You might have to reboot.");Halt;
-	endif;
-endif;
-View(data%).XRange(0, 1);
-'View(data%).WindowVisible(1);
-ChanHide(31);
-ViewTrigger(11, .1, .9, 1,1);
-'WindowVisible(1);
-
-DrawMode(-1,2);							'Set event draw mode to lines
-Window(0,0,100,80);						'Make data window in top bit of screen
-
-'set the filter
-FiltCalc(3, BinSize(1), highPassFilter[]);
-
-'ok let's try to make a new result view
-resultViewH%:=SetResult(5000, BinSize(1), -.1, "Filtered EMG", "s", ChanUnits$(1), "Time", "EMG-apb");
-View(resultViewH%).DrawMode(1, 2);
-View(resultViewH%).YRange(1, -1.0, 1.0);
-View(resultViewH%).WindowVisible(1);
-View(resultViewH%).CursorNew(XToBin(0));
-View(resultViewH%).Window(0,0,100,80);
-Colour(12,6);
-
-FrontView(LogHandle());					'Bring the Log view to the front
-'FrontView(data%);						'Bring the data view to the front
-FrontView(resultViewH%);
-'ToolbarEnable(NEWBUTTONID%,0);						'Disable new file
-'ToolbarEnable(STARTBUTTONID%,1);						'enable "Sample start" button
-'ToolbarEnable(CLOSEBUTTONID%,1);						'enable close file
-
-' here are all the variables we need to re-initialize every time we start a new recording
-currentTrigTime:=-1;
-updateNecessary%:=0;
-numStim% := 0;
-nextTMSFireTime := 4;
-TMSlastCommandTime := -1;
-lastStimOutput% := -1;
-'ToolbarText("Press SAMPLE START to commence sampling");
-
-getParams%();
-if (doTMSArtifactFilter%) then
-	FILTERexpFilterInit();
-endif;
-SampleStart();
-return 1;
-end;
-func getParams%()
-
-	DlgCreate("Set Parameters");
-	DlgCheck(1, "Use Dig. Hi-Pass Filter");
-	DlgCheck(2, "Use 60 Cycle Filter");
-	DlgCheck(3, "Use TMS Artifact Filter");
-	DlgReal(4, "Inter-stimulus Interval Min", 0, 50);
-	DlgReal(5, "Inter-stimulus Interval Max", 0, 50);
-'	DlgCheck(3, "Run BEST-PEST");
-'	DlgShow(doHPFilter%, do60CycleFilter%, doBestPest%, doAutoControl%);
-	DlgShow(doHPFilter%, do60CycleFilter%, doTMSArtifactFilter%, interStimulusIntervalMin, interStimulusIntervalMax);
-	jitter := interStimulusIntervalMax - interStimulusIntervalMin;
 end;
 '*********************************************************
 '*********************************************************
@@ -2685,15 +2379,15 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 	EditSelectAll();						'Select all text in log view
 	EditClear();							'Delete it
 	var fd%;
-	'fName$ := View(data%).FileName$(3);
+	'subjectID$ := View(data%).FileName$(3);
 	fd% := FileNew(1);
 	if (fd% < 0) then
 		printlog("Could not open text file to save data, printing to log window.\n");
 	endif;
 	if (fd% < 0) then
-		printlog("%sSTIM\t%sVAL\n", fName$, fName$);
+		printlog("%sSTIM\t%sVAL\n", subjectID$, subjectID$);
 	else
-		View(fd%).print("%sSTIM\t%sVAL\n", fName$, fName$);
+		View(fd%).print("%sSTIM\t%sVAL\n", subjectID$, subjectID$);
 	endif;
 	var i%, j%;
 	for i% := 0 to 8 do
@@ -2714,7 +2408,7 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 	'View(fd%).print("MaxSlopeInt\t%f\n", maxInt);
 	var ret%;	
 	if (fd% >= 0) then 
-		ret% := View(fd%).FileSaveAs(print$("%s_RC_analyze.txt", fName$), 1, 0, "Save analysis as...");
+		ret% := View(fd%).FileSaveAs(print$("%s_RC_analyze.txt", subjectID$), 1, 0, "Save analysis as...");
 		if (ret% < 0) then
 			View(fd%);
 			FileClose(0, -1);
@@ -2723,79 +2417,12 @@ proc ANALYZEprintResults(maxSlope, maxInt)'(coef[], maxSlope, maxInt)
 			FileClose();
 		endif;
 		'View(xy%);
-		'ret% := View(xy%).FileSaveAs(print$("%s%s", fName$, "_RC_plot.bmp"), 13, 0, "Save plot as ...");
+		'ret% := View(xy%).FileSaveAs(print$("%s%s", subjectID$, "_RC_plot.bmp"), 13, 0, "Save plot as ...");
 
 	endif;
 end;
-proc updateEpoch()
-	docase
-		case currentProtocol% = RCPROTOCOL% then
-			UPDATErc();
-	endcase;
-end
-proc UPDATErc()
-		if (numStim% = numEpochs%) then '(numStim% >= numEpochs%)
-			doAutoControl% := 0;
-			RCMeasure%();
-			'completeProtocol();
-		else
-			'updateEpoch();
-    curStimOutput% := stimulusIntensities%[numStim%];
-    PrintLog("RC should keep going");
-		endif			
-end;
-proc completeProtocol()
-	commentCSPFile();
-	currentProtocol%:=NOPROTOCOL%;
-	printlog("Protocol complete\n");
-'	SampleStop();
-end
-proc commentCSPFile()
-
-	if (data% > 0) then
-		View(data%).FileComment$(1, Print$("RMT: %d", rmt%));
-		if (currentProtocol% = CSPPROTOCOL%) then
-			'printlog("bing");
-		   'View(data%).FileComment$(1, Print$("RMT: %d", rmt%));
-			View(data%).FileComment$(2, Print$("Stim: %d", curStimOutput%));
-		else 
-		   if (currentProtocol% = RCPROTOCOL%) then
-				var str$;
-				var i%, j%, lineNo%, numThisLine%, z%;
-				z% := 0;
-				lineNo% := 2;
-				numThisLine% := 0;
-				str$ := "Stim:";
-				while i% < numEpochs% do
-					if (Len(str$) < 79-5) then
-						str$ := Print$("%s %d", str$, stimulusIntensities%[i%]);
-						numThisLine% += 1;
-						i% += 1;
-					endif;
-					if (Len(str$) >= (79-5) or i% = numEpochs%) then 
-						printlog("comment str: %s\n", str$);	
-						View(data%).FileComment$(lineNo%, str$);
-						str$ := "Stim:";
-						lineNo% += 1;
-						numThisLine% := 0;
-					endif;
-				wend;
-			endif;
-		endif;
-	endif;
-
-end
 '**********************************************************
 '*********************************************************
-'Filtering Funcs
-proc FILTERexpFilterInit()
-	FILTERexpFilterCursorStart% := CursorNew();
-	FILTERexpFilterCursorEnd% := CursorNew();
-	CursorLabel(4, FILTERexpFilterCursorStart%, "filter start");
-	CursorLabel(4, FILTERexpFilterCursorEnd%, "filter end");
-	Cursor(FILTERexpFilterCursorStart%, XToBin(FILTERexpFilterStart));
-	Cursor(FILTERexpFilterCursorEnd%, XToBin(FILTERexpFilterEnd));
-end;
 func Wait%()
 
 armTMS%();   'arm the magstim
@@ -2805,7 +2432,7 @@ btime:=view(0).MaxTime() + 5; 'begin time
 while btime < ftime do         'give magstim a second to arm itself before attempting to change the ISI
     ftime := view(0).MaxTime();
     if (View(0).Maxtime() - TMSlastCommandTime > 0.5) then 'make sure that spike is still communicating with the magstim
-      TMSSetRemoteControl%(TMSMAGSTIM200SPORT%);
+      TMSSetRemoteControl%(MagstimSerialPort%);
     endif;    
 wend;
 
@@ -2860,10 +2487,10 @@ FrontView(resultViewH%);
 ' here are all the variables we need to re-initialize every time we start a new recording
 currentTrigTime:=-1;
 updateNecessary%:=0;
-numStim% := 0;
+
 nextTMSFireTime := 4;
 TMSlastCommandTime := -1;
-lastStimOutput% := -1;
+
 
   	DlgCreate("RC Parameters"); 'get rMT to base RC intensities off of
   	DlgInteger(1, "rMT", 0, 100);
